@@ -1,24 +1,95 @@
 import React from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
+import { ThemeProvider } from "@mui/material/styles";
+import { AppBar, Toolbar, Typography, Button, Box } from "@mui/material"; // Removed Container
 import Register from "./components/Register";
 import Login from "./components/Login";
 import EmailVerification from "./components/EmailVerification";
+import theme from "./theme"; // Import the custom theme
+import logo from "../img/logo.png";
 
+// HomePage component with proper centering
+function HomePage() {
+  return (
+      <Box
+        display="flex"
+        flexDirection="column"
+        justifyContent="center"
+        alignItems="center"
+        height="100vh"
+        width="100%"
+        textAlign="center"
+        sx={{
+          maxWidth: "1280px", // Limit the width only for the HomePage
+          margin: "0 auto", // Center the content horizontally
+          backgroundColor: "#f4f6f8", // Optional for styling
+        }}
+      >
+
+      <Typography variant="h2" gutterBottom>
+        Welcome to the Travel System
+      </Typography>
+      <Typography variant="body1" paragraph>
+        Your gateway to managing travel and account details. Click below to get started:
+      </Typography>
+      <Box mt={2}>
+        <Button
+          variant="contained"
+          color="primary"
+          style={{ marginRight: "10px" }}
+          component={Link}
+          to="/register"
+        >
+          Register
+        </Button>
+        <Button variant="outlined" color="secondary" component={Link} to="/login">
+          Login
+        </Button>
+      </Box>
+    </Box>
+  );
+}
+
+
+// Main App component
 function App() {
   return (
-    <Router>
-      <div>
-        <h1>Authentication System</h1>
-        <Routes>
-          {/* Route for the registration page */}
-          <Route path="/register" element={<Register />} />
-          {/* Route for the login page */}
-          <Route path="/login" element={<Login />} />
-          {/* Route for email verification */}
-          <Route path="/verify-email" element={<EmailVerification />} />
-        </Routes>
-      </div>
-    </Router>
+    <ThemeProvider theme={theme}>
+      <Router>
+        <div>
+          {/* AppBar with logo and navigation links */}
+          <AppBar position="fixed">
+            <Toolbar>
+              <img src={logo} alt="Travel System Logo" style={{ height: "40px", marginRight: "10px" }} />
+              <Typography variant="h6" style={{ flexGrow: 1 }}>
+                Travel System
+              </Typography>
+              <Button color="inherit" component={Link} to="/">
+                Home
+              </Button>
+              <Button color="inherit" component={Link} to="/register">
+                Register
+              </Button>
+              <Button color="inherit" component={Link} to="/login">
+                Login
+              </Button>
+            </Toolbar>
+          </AppBar>
+
+          {/* Spacer to avoid overlapping with the AppBar */}
+          <Toolbar />
+
+          {/* Routes for navigation */}
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/verify-email" element={<EmailVerification />} />
+          </Routes>
+
+        </div>
+      </Router>
+    </ThemeProvider>
   );
 }
 

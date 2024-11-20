@@ -13,7 +13,8 @@ function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post("http://localhost:3000/login", formData);
+      // Use environment variable for the backend URL
+      const response = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/login`, formData);
       setMessage("Login successful!");
       localStorage.setItem("token", response.data.token); // Save token for authenticated routes
     } catch (error) {

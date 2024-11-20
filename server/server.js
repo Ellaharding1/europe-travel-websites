@@ -1,33 +1,38 @@
+require("dotenv").config(); // Load environment variables from .env
+
 const express = require("express");
 const cors = require("cors"); // Import CORS
+const { MongoClient } = require("mongodb");
+const bcrypt = require("bcrypt");
+const crypto = require("crypto"); // For generating a random secret key
+const jwt = require("jsonwebtoken");
+const validator = require("validator");
 
 const app = express(); // Initialize app
+
+// Load environment variables
+const PORT = process.env.PORT || 3000; // Default to port 3000 if not provided
+const DATABASE_URI = process.env.DATABASE_URI; // MongoDB connection string
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5174"; // Default to localhost frontend
+const TOKEN_SECRET = process.env.TOKEN_SECRET || "your-secret-key"; // Secret for JWT signing
 
 // Enable CORS
 app.use(
   cors({
-    origin: "http://localhost:5174", // Allow requests from your frontend
+    origin: FRONTEND_URL, // Allow requests from frontend URL
     methods: ["GET", "POST", "PUT", "DELETE"], // Specify allowed HTTP methods
     credentials: true, // Include this if you're using cookies or authentication headers
   })
 );
 
-const { MongoClient } = require("mongodb");
-const bcrypt = require("bcrypt");
-const crypto = require("crypto"); // For generating a random secret key
-const jwt = require("jsonwebtoken");
-const nodemailer = require("nodemailer");
-const validator = require("validator");
+app.use(express.json()); // Enable JSON parsing
 
-app.use(express.json());
+// MongoDB client setup
+const client = new MongoClient(DATABASE_URI);
+const db = client.db("lab4_database");
+const usersCollection = db.collection("users");
 
-const TOKEN_SECRET = "your-secret-key";
-
-const port = 3000;
-
-const uri = "mongodb+srv://ellaharding:Shadowflash1@users.8onqb.mongodb.net/";
-const databaseName = "lab4_database";
-
+// Middleware for token authentication
 function authenticateToken(req, res, next) {
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1];
@@ -43,11 +48,7 @@ function authenticateToken(req, res, next) {
   }
 }
 
-app.use("/api/secure", authenticateToken);
-
-const client = new MongoClient(uri);
-const db = client.db(databaseName);
-const usersCollection = db.collection("users");
+app.use("/api/secure", authenticateToken); // Secure route middleware
 
 (async () => {
   try {
@@ -55,12 +56,15 @@ const usersCollection = db.collection("users");
     console.log("Connected to MongoDB");
   } catch (err) {
     console.error("Failed to connect to MongoDB:", err);
+    process.exit(1); // Exit process if MongoDB connection fails
   }
 
-  app.listen(port, () => {
-    console.log(`Server is running on http://localhost:${port}`);
+  // Start the server
+  app.listen(PORT, () => {
+    console.log(`Server is running on http://localhost:${PORT}`);
   });
 
+  // Register endpoint
   app.post("/register", async (req, res) => {
     const { email, password, nickname } = req.body;
 
@@ -90,7 +94,7 @@ const usersCollection = db.collection("users");
 
       const token = jwt.sign({ email }, secretKey, { expiresIn: "1h" });
 
-      const verificationLink = `http://localhost:3000/verify-email?token=${token}`;
+      const verificationLink = `${FRONTEND_URL}/verify-email?token=${token}`;
       console.log(`Verification link: ${verificationLink}`);
 
       res.status(201).json({
@@ -102,6 +106,7 @@ const usersCollection = db.collection("users");
     }
   });
 
+  // Email verification endpoint
   app.get("/verify-email", async (req, res) => {
     const { token } = req.query;
 
@@ -126,6 +131,7 @@ const usersCollection = db.collection("users");
     }
   });
 
+  // Login endpoint
   app.post("/login", async (req, res) => {
     const { email, password } = req.body;
 

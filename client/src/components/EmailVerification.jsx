@@ -10,7 +10,8 @@ function EmailVerification() {
     const verifyEmail = async () => {
       const token = searchParams.get("token");
       try {
-        const response = await axios.get(`http://localhost:3000/verify-email?token=${token}`);
+        // Use environment variable for the backend URL
+        const response = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/verify-email?token=${token}`);
         setMessage(response.data);
       } catch (error) {
         setMessage(error.response?.data?.error || "An error occurred");

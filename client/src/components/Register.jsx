@@ -13,7 +13,8 @@ function Register() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post("http://localhost:3000/register", formData);
+      // Use environment variable for backend URL
+      const response = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/register`, formData);
       setMessage(response.data.message);
     } catch (error) {
       setMessage(error.response?.data?.error || "An error occurred");
