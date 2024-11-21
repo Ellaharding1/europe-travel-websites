@@ -1,33 +1,35 @@
-require("dotenv").config(); // Load environment variables from .env
+require("dotenv").config(); // Load environment variables
 
 const express = require("express");
-const cors = require("cors"); // Import CORS
+const cors = require("cors");
 const { MongoClient } = require("mongodb");
 const bcrypt = require("bcrypt");
-const crypto = require("crypto"); // For generating a random secret key
+const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const validator = require("validator");
 
-const app = express(); // Initialize app
+const app = express();
+const PORT = process.env.PORT || 3000; // Default to 3000 if PORT is not in .env
+const DATABASE_URI = process.env.DATABASE_URI;
+const TOKEN_SECRET = process.env.TOKEN_SECRET;
+const FRONTEND_URL = process.env.FRONTEND_URL;
 
-// Load environment variables
-const PORT = process.env.PORT || 3000; // Default to port 3000 if not provided
-const DATABASE_URI = process.env.DATABASE_URI; // MongoDB connection string
-const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5174"; // Default to localhost frontend
-const TOKEN_SECRET = process.env.TOKEN_SECRET || "your-secret-key"; // Secret for JWT signing
+
 
 // Enable CORS
 app.use(
   cors({
-    origin: FRONTEND_URL, // Allow requests from frontend URL
-    methods: ["GET", "POST", "PUT", "DELETE"], // Specify allowed HTTP methods
-    credentials: true, // Include this if you're using cookies or authentication headers
+    origin: FRONTEND_URL,
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true,
   })
 );
 
-app.use(express.json()); // Enable JSON parsing
 
-// MongoDB client setup
+// Middleware
+app.use(express.json());
+
+// MongoDB Setup
 const client = new MongoClient(DATABASE_URI);
 const db = client.db("lab4_database");
 const usersCollection = db.collection("users");
@@ -42,21 +44,20 @@ function authenticateToken(req, res, next) {
   try {
     const decoded = jwt.verify(token, TOKEN_SECRET);
     req.user = decoded; // Attach the user payload to the request
-    next(); // Call the next middleware or route handler
+    next();
   } catch (err) {
     res.status(403).json({ error: "Invalid token." });
   }
 }
 
-app.use("/api/secure", authenticateToken); // Secure route middleware
-
+// Initialize and connect to MongoDB
 (async () => {
   try {
     await client.connect();
     console.log("Connected to MongoDB");
   } catch (err) {
     console.error("Failed to connect to MongoDB:", err);
-    process.exit(1); // Exit process if MongoDB connection fails
+    process.exit(1);
   }
 
   // Start the server
@@ -64,7 +65,7 @@ app.use("/api/secure", authenticateToken); // Secure route middleware
     console.log(`Server is running on http://localhost:${PORT}`);
   });
 
-  // Register endpoint
+  // Register User
   app.post("/register", async (req, res) => {
     const { email, password, nickname } = req.body;
 
@@ -98,24 +99,34 @@ app.use("/api/secure", authenticateToken); // Secure route middleware
       console.log(`Verification link: ${verificationLink}`);
 
       res.status(201).json({
-        message: "User registered successfully. Simulated email verification link:",
+        message: "User registered successfully. Please verify your email.",
         verificationLink,
       });
+      
     } catch (err) {
       res.status(500).json({ error: "Failed to register user", details: err.message });
     }
   });
 
-  // Email verification endpoint
+  // Verify Email
   app.get("/verify-email", async (req, res) => {
     const { token } = req.query;
+
+    if (!token) {
+      return res.status(400).json({ error: "Token is missing." });
+    }
 
     try {
       const decodedToken = jwt.decode(token);
 
+      if (!decodedToken || !decodedToken.email) {
+        return res.status(400).json({ error: "Invalid token format." });
+      }
+
       const user = await usersCollection.findOne({ email: decodedToken.email });
+
       if (!user) {
-        return res.status(404).json({ error: "User not found" });
+        return res.status(404).json({ error: "User not found." });
       }
 
       jwt.verify(token, user.secretKey);
@@ -125,24 +136,24 @@ app.use("/api/secure", authenticateToken); // Secure route middleware
         { $set: { isVerified: true } }
       );
 
-      res.send("Email verified successfully.");
+      res.status(200).json({ message: "Email verified successfully." });
     } catch (err) {
-      res.status(400).json({ error: "Invalid or expired token" });
+      res.status(400).json({ error: "Invalid or expired token." });
     }
   });
 
-  // Login endpoint
+  // Login User
   app.post("/login", async (req, res) => {
     const { email, password } = req.body;
 
     try {
       if (!validator.isEmail(email)) {
-        return res.status(400).json({ error: "Invalid email format" });
+        return res.status(400).json({ error: "Invalid email format." });
       }
 
       const user = await usersCollection.findOne({ email });
       if (!user) {
-        return res.status(404).json({ error: "User not found" });
+        return res.status(404).json({ error: "User not found." });
       }
 
       if (user.isDisabled) {
@@ -151,7 +162,7 @@ app.use("/api/secure", authenticateToken); // Secure route middleware
 
       const isPasswordValid = await bcrypt.compare(password, user.password);
       if (!isPasswordValid) {
-        return res.status(400).json({ error: "Invalid password" });
+        return res.status(400).json({ error: "Invalid password." });
       }
 
       const token = jwt.sign({ id: user._id, email: user.email }, user.secretKey, { expiresIn: "1h" });

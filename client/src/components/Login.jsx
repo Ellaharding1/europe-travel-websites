@@ -18,14 +18,26 @@ function Login() {
       setMessage("Login successful!");
       localStorage.setItem("token", response.data.token); // Save token for authenticated routes
     } catch (error) {
-      setMessage(error.response?.data?.error || "An error occurred");
+      setMessage(
+        error.response?.data?.error || "An error occurred during login. Please try again."
+      );
     }
   };
 
+  const renderMessage = () => {
+    if (!message) return null;
+
+    if (typeof message === "object") {
+      return JSON.stringify(message); // Handle cases where message is an object
+    }
+
+    return message; // Render the string message
+  };
+
   return (
-    <div>
+    <div style={{ textAlign: "center", marginTop: "20px" }}>
       <h2>Login</h2>
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} style={{ marginTop: "10px" }}>
         <input
           type="email"
           name="email"
@@ -33,6 +45,7 @@ function Login() {
           value={formData.email}
           onChange={handleChange}
           required
+          style={{ display: "block", marginBottom: "10px", padding: "8px", width: "100%" }}
         />
         <input
           type="password"
@@ -41,10 +54,27 @@ function Login() {
           value={formData.password}
           onChange={handleChange}
           required
+          style={{ display: "block", marginBottom: "10px", padding: "8px", width: "100%" }}
         />
-        <button type="submit">Login</button>
+        <button
+          type="submit"
+          style={{
+            padding: "10px 20px",
+            backgroundColor: "#007BFF",
+            color: "#FFF",
+            border: "none",
+            borderRadius: "5px",
+            cursor: "pointer",
+          }}
+        >
+          Login
+        </button>
       </form>
-      {message && <p>{message}</p>}
+      {message && (
+        <p style={{ marginTop: "20px", color: message === "Login successful!" ? "green" : "red" }}>
+          {renderMessage()}
+        </p>
+      )}
     </div>
   );
 }

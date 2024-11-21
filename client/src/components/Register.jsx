@@ -1,9 +1,12 @@
 import React, { useState } from "react";
 import axios from "axios";
+import { Box, Button, TextField, Dialog, DialogTitle, DialogContent, DialogActions } from "@mui/material";
 
 function Register() {
   const [formData, setFormData] = useState({ email: "", password: "", nickname: "" });
   const [message, setMessage] = useState("");
+  const [open, setOpen] = useState(false); // For the modal
+  const [verificationMessage, setVerificationMessage] = useState("");
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -12,47 +15,148 @@ function Register() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log("Form data submitted:", formData);
+
     try {
-      // Use environment variable for backend URL
-      const response = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/register`, formData);
-      setMessage(response.data.message);
+      const response = await axios.post(
+        `${import.meta.env.VITE_BACKEND_URL}/register`,
+        formData
+      );
+      console.log("Backend response:", response.data);
+
+      // Set the response message (object) and open the modal
+      setMessage(response.data);
+      setOpen(true);
     } catch (error) {
-      setMessage(error.response?.data?.error || "An error occurred");
+      console.error("Registration error:", error.response?.data);
+      setMessage({ error: error.response?.data?.error || "Registration failed." });
     }
   };
 
+  const handleVerifyEmail = async (verificationLink) => {
+    try {
+      const token = verificationLink.split("token=")[1];
+      console.log("Extracted token:", token);
+
+      if (!token) {
+        setVerificationMessage("Invalid token.");
+        return;
+      }
+
+      const response = await axios.get(
+        `${import.meta.env.VITE_BACKEND_URL}/verify-email?token=${token}`
+      );
+      setVerificationMessage(response.data.message); // Success message
+    } catch (error) {
+      console.error("Verification Error:", error.response?.data);
+      setVerificationMessage(error.response?.data?.error || "Verification failed.");
+    }
+  };
+
+  const renderMessage = () => {
+    if (!message) return null;
+
+    if (typeof message === "object") {
+      return (
+        <p style={{ color: "#555", marginTop: "10px" }}>
+          {message.error || message.message || JSON.stringify(message)}
+        </p>
+      );
+    }
+
+    return (
+      <p style={{ color: "#555", marginTop: "10px" }}>
+        {message}
+      </p>
+    );
+  };
+
   return (
-    <div>
-      <h2>Register</h2>
+    <Box
+      display="flex"
+      flexDirection="column"
+      alignItems="center"
+      justifyContent="center"
+      height="100vh"
+      textAlign="center"
+    >
+      {/* Registration Form */}
+      <h4>Register</h4>
       <form onSubmit={handleSubmit}>
-        <input
-          type="email"
+        <TextField
+          label="Email"
           name="email"
-          placeholder="Email"
+          type="email"
           value={formData.email}
           onChange={handleChange}
           required
+          fullWidth
+          margin="normal"
         />
-        <input
-          type="password"
+        <TextField
+          label="Password"
           name="password"
-          placeholder="Password"
+          type="password"
           value={formData.password}
           onChange={handleChange}
           required
+          fullWidth
+          margin="normal"
         />
-        <input
-          type="text"
+        <TextField
+          label="Nickname"
           name="nickname"
-          placeholder="Nickname"
           value={formData.nickname}
           onChange={handleChange}
           required
+          fullWidth
+          margin="normal"
         />
-        <button type="submit">Register</button>
+        <Button type="submit" variant="contained" color="primary">
+          Register
+        </Button>
       </form>
-      {message && <p>{message}</p>}
-    </div>
+
+      {/* Message below the form */}
+      {renderMessage()}
+
+      {/* Modal for Email Verification */}
+      <Dialog open={open} onClose={() => setOpen(false)}>
+        <DialogTitle>Email Verification</DialogTitle>
+        <DialogContent>
+          {/* Render the main message */}
+          <p>
+            {typeof message === "string"
+              ? message
+              : message?.message || "Something went wrong. Please try again."}
+          </p>
+
+          {/* Render the verification link if it exists */}
+          {message?.verificationLink && (
+            <p>
+              <a
+                href={message.verificationLink}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Verify Email
+              </a>
+            </p>
+          )}
+
+          {/* Render the verification message if present */}
+          {verificationMessage && (
+            <p style={{ color: "blue", marginTop: "10px" }}>
+              {verificationMessage}
+            </p>
+          )}
+        </DialogContent>
+
+        <DialogActions>
+          <Button onClick={() => setOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
   );
 }
 
