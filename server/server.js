@@ -7,6 +7,11 @@ const bcrypt = require("bcrypt");
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const validator = require("validator");
+const fs = require("fs");
+const csv = require("csv-parser");
+
+
+const CSV_FILE_PATH = process.env.CSV_FILE_PATH || "data/destinations.csv";
 
 const app = express();
 const PORT = process.env.PORT || 3000; // Default to 3000 if PORT is not in .env
@@ -171,4 +176,23 @@ function authenticateToken(req, res, next) {
       res.status(500).json({ error: "Failed to log in", details: err.message });
     }
   });
+
+  app.get("/destinations", async (req, res) => {
+    try {
+      const destinations = await db.collection("destinations").find().toArray(); // Fetch all destinations
+      res.status(200).json(destinations); // Send the destinations as a JSON response
+    } catch (err) {
+      res.status(500).send("Error fetching destinations: " + err.message);
+    }
+  });
+  
 })();
+// Route to trigger the CSV import (optional)
+app.get("/import-csv", async (req, res) => {
+  try {
+    await importCSVtoMongoDB();
+    res.send("CSV imported successfully.");
+  } catch (err) {
+    res.status(500).send("Error importing CSV: " + err.message);
+  }
+});
