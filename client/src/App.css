@@ -11,9 +11,6 @@ html, body, #root {
   flex-direction: column;
 }
 
-
-
-
 .logo {
   height: 6em;
   padding: 1.5em;

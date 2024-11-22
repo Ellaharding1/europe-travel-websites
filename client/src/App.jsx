@@ -5,51 +5,70 @@ import { AppBar, Toolbar, Typography, Button, Box } from "@mui/material"; // Rem
 import Register from "./components/Register";
 import Login from "./components/Login";
 import EmailVerification from "./components/EmailVerification";
+import SearchDestination from "./components/SearchDestination";
 import theme from "./theme"; // Import the custom theme
 import logo from "../img/logo.png";
+
 
 // HomePage component with proper centering
 function HomePage() {
   return (
-      <Box
-        display="flex"
-        flexDirection="column"
-        justifyContent="center"
-        alignItems="center"
-        height="100vh"
-        width="100%"
-        textAlign="center"
-        sx={{
-          maxWidth: "1280px", // Limit the width only for the HomePage
-          margin: "0 auto", // Center the content horizontally
-          backgroundColor: "#f4f6f8", // Optional for styling
-        }}
-      >
+    <Box
+  display="flex"
+  flexDirection="column"
+  justifyContent="flex-start" // Align items closer to the top
+  alignItems="center"
+  height="100vh"
+  width="100%"
+  textAlign="center"
+  sx={{
+    margin: "0 auto",
+    backgroundImage: "url('../img/background.png')", 
+    backgroundSize: "cover", // Ensures the image covers the entire area
+    backgroundPosition: "center", // Centers the image
+    backgroundRepeat: "no-repeat", // Prevents the image from repeating
+    color: "#ffffff",
+    paddingTop: "20vh", // Add padding to shift the content downward slightly
+  }}
+>
+  <Typography variant="h2" gutterBottom>
+    Welcome to the Travel System
+  </Typography>
+  <Typography variant="body1" paragraph>
+    Your gateway to managing travel and account details. Click below to get started:
+  </Typography>
+  <Box mt={2}>
+    <Button
+      variant="contained"
+      color="primary"
+      style={{ marginRight: "10px" }}
+      component={Link}
+      to="/register"
+    >
+      Register
+    </Button>
+    <Button
+      variant="contained"
+      color="primary"
+      style={{ marginRight: "10px" }}
+      component={Link}
+      to="/login"
+    >
+      Login
+    </Button>
+    <Button
+      variant="contained"
+      color="primary"
+      component={Link}
+      to="/search-destination"
+    >
+      Search Destinations
+    </Button>
+  </Box>
+</Box>
 
-      <Typography variant="h2" gutterBottom>
-        Welcome to the Travel System
-      </Typography>
-      <Typography variant="body1" paragraph>
-        Your gateway to managing travel and account details. Click below to get started:
-      </Typography>
-      <Box mt={2}>
-        <Button
-          variant="contained"
-          color="primary"
-          style={{ marginRight: "10px" }}
-          component={Link}
-          to="/register"
-        >
-          Register
-        </Button>
-        <Button variant="outlined" color="secondary" component={Link} to="/login">
-          Login
-        </Button>
-      </Box>
-    </Box>
   );
 }
-
 
 // Main App component
 function App() {
@@ -73,6 +92,10 @@ function App() {
               <Button color="inherit" component={Link} to="/login">
                 Login
               </Button>
+              <Button color="inherit" component={Link} to="/search-destination">
+                Search Destination
+              </Button>
+
             </Toolbar>
           </AppBar>
 
@@ -85,7 +108,9 @@ function App() {
             <Route path="/register" element={<Register />} />
             <Route path="/login" element={<Login />} />
             <Route path="/verify-email" element={<EmailVerification />} />
+            <Route path="/search-destination" element={<SearchDestination />} />
           </Routes>
+
 
         </div>
       </Router>
