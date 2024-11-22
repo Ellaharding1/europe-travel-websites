@@ -183,39 +183,50 @@ function authenticateToken(req, res, next) {
     }
   });
 
-  // Search for destinations
-  app.get("/search-destinations", async (req, res) => {
-    try {
-      const { field, value, page = 1, limit = 5 } = req.query;
-  
-      const query = {};
-      if (value) {
-        query[field] = { $regex: `${value}`, $options: "i" };
-      }
-  
-      const pageNumber = parseInt(page, 10);
-      const limitNumber = parseInt(limit, 10);
-  
-      const results = await db
-        .collection("destinations")
-        .find(query)
-        .skip((pageNumber - 1) * limitNumber)
-        .limit(limitNumber)
-        .toArray();
-  
-      const totalCount = await db.collection("destinations").countDocuments(query);
-  
-      res.status(200).json({
-        results,
-        totalCount,
-        currentPage: pageNumber,
-        totalPages: Math.ceil(totalCount / limitNumber),
-      });
-    } catch (err) {
-      console.error("Error searching destinations:", err.message);
-      res.status(500).json({ error: "Error searching destinations: " + err.message });
+// Search for destinations
+app.get("/search-destinations", async (req, res) => {
+  try {
+    const { field, value = "", page = 1, limit = 5 } = req.query;
+
+    // Prepare query
+    const query = {};
+    if (value.trim() !== "") {
+      query[field] = { $regex: `^${value.trim()}`, $options: "i" }; // Match field starts with value
     }
-  });
+
+    const pageNumber = parseInt(page, 10);
+    const limitNumber = parseInt(limit, 10);
+
+    // Fetch results with pagination
+    const results = await db.collection("destinations")
+      .find(query)
+      .skip((pageNumber - 1) * limitNumber)
+      .limit(limitNumber)
+      .toArray();
+
+    // Fetch all results for total count
+    const totalCount = await db.collection("destinations").countDocuments(query);
+
+    res.status(200).json({
+      results,
+      totalCount,
+      currentPage: pageNumber,
+      totalPages: Math.ceil(totalCount / limitNumber),
+    });
+  } catch (err) {
+    console.error("Error fetching destinations:", err.message);
+    res.status(500).json({ error: "Error fetching destinations: " + err.message });
+  }
+});
+
+
+
+  
+  
+  
+  
+  
+  
   
   
   

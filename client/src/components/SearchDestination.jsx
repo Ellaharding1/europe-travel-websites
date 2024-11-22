@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
+import Fuse from "fuse.js";
+
 
 
 const SearchDestination = () => {
@@ -19,29 +21,69 @@ const SearchDestination = () => {
     try {
       const params = {
         field,
+        value: value.trim(),
         page,
         limit,
       };
-      if (value.trim() !== "") {
-        params.value = value; // Only include 'value' if it's not empty
-      }
-
-      const response = await axios.get(`${BACKEND_URL}/search-destinations`, {
-        params,
+  
+      // Fetch all results for fuzzy matching
+      const allResultsResponse = await axios.get(`${BACKEND_URL}/search-destinations`, {
+        params: { field, page: 1, limit: 1000 }, // Fetch all data for fuzzy matching
       });
-
-      setResults(response.data.results);
-      setTotalPages(response.data.totalPages);
+  
+      console.log("All Backend Results for Fuzzy Matching:", allResultsResponse.data.results);
+  
+      let refinedResults = allResultsResponse.data.results; // Default to backend results
+  
+      if (value.trim() !== "") {
+        // Perform fuzzy matching using Fuse.js
+        const options = {
+          keys: ["name", "region", "country"], // Fields to search within
+          threshold: 0.3, // Adjust this for more relaxed matches (higher = more relaxed)
+          includeScore: true,
+        };
+  
+        const fuse = new Fuse(refinedResults, options);
+        const fuseResults = fuse.search(value.trim()); // Search with the user input
+  
+        console.log("Fuse.js Results:", fuseResults);
+  
+        // Extract matched objects from Fuse.js results
+        refinedResults = fuseResults.map((result) => result.item);
+        console.log("Refined Results for Display:", refinedResults);
+      }
+  
+      // Calculate total pages based on refined results
+      const totalResultsCount = refinedResults.length; // Total number of matched results
+      const totalPages = Math.ceil(totalResultsCount / limit);
+  
+      // Paginate refined results
+      const startIndex = (page - 1) * limit;
+      const paginatedResults = refinedResults.slice(startIndex, startIndex + limit);
+  
+      console.log("Paginated Results:", paginatedResults);
+  
+      // Set state
+      setResults(paginatedResults); // Display only results for the current page
+      setTotalPages(totalPages); // Update total pages
       setError("");
     } catch (err) {
-      console.error(err.message);
+      console.error("Error in searchDestinations:", err.response?.data || err.message);
       setError("Error fetching destinations. Please try again.");
     }
   };
+  
+  
+  
 
   useEffect(() => {
     searchDestinations();
   }, [page, limit]);
+
+  const handleDuckDuckGoSearch = (query) => {
+    const searchUrl = `https://duckduckgo.com/?q=${encodeURIComponent(query)}`;
+    window.open(searchUrl, "_blank"); // Opens the search in a new tab
+  };
 
   return (
     <div
@@ -113,8 +155,6 @@ const SearchDestination = () => {
             <option value={10}>10 Items Per Page</option>
             <option value={15}>15 Items Per Page</option>
             <option value={20}>20 Items Per Page</option>
-
-
 
           </select>
         </label>
@@ -258,8 +298,24 @@ const SearchDestination = () => {
                     </Popup>
                   </Marker>
                 </MapContainer>
+
               </div>
             )}
+
+            <button
+              onClick={() => handleDuckDuckGoSearch(result.name)}
+              style={{
+                marginTop: "10px",
+                padding: "10px 20px",
+                backgroundColor: "#1a1a1a", 
+                color: "#fff",
+                border: "none",
+                borderRadius: "4px",
+                cursor: "pointer",
+              }}
+            >
+              Search on DuckDuckGo
+            </button>
           </div>
         ))}
       </div>
