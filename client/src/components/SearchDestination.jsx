@@ -26,53 +26,60 @@ const SearchDestination = () => {
         limit,
       };
   
-      // Fetch all results for fuzzy matching
-      const allResultsResponse = await axios.get(`${BACKEND_URL}/search-destinations`, {
-        params: { field, page: 1, limit: 1000 }, // Fetch all data for fuzzy matching
-      });
+      // Fetch paginated results from the backend
+      const response = await axios.get(`${BACKEND_URL}/search-destinations`, { params });
+      console.log("Backend Results:", response.data.results);
   
-      console.log("All Backend Results for Fuzzy Matching:", allResultsResponse.data.results);
-  
-      let refinedResults = allResultsResponse.data.results; // Default to backend results
+      let refinedResults = response.data.results; // Default to backend results
+      let totalRefinedResults = response.data.totalCount; // Use backend-provided count for pagination
   
       if (value.trim() !== "") {
-        // Perform fuzzy matching using Fuse.js
-        const options = {
-          keys: ["name", "region", "country"], // Fields to search within
-          threshold: 0.3, // Adjust this for more relaxed matches (higher = more relaxed)
-          includeScore: true,
-        };
+        // Fetch all results for fuzzy matching
+        const allResultsResponse = await axios.get(`${BACKEND_URL}/search-destinations`, {
+          params: { field, page: 1, limit: 1000 }, // Fetch all data for fuzzy matching
+        });
   
-        const fuse = new Fuse(refinedResults, options);
-        const fuseResults = fuse.search(value.trim()); // Search with the user input
+        console.log("All Backend Results for Fuzzy Matching:", allResultsResponse.data.results);
   
-        console.log("Fuse.js Results:", fuseResults);
+        // Prepare data for fuzzy search (preserve case sensitivity and original data)
+        const sanitizedResults = allResultsResponse.data.results.map((item) => ({
+          ...item,
+          name: item.name || "",
+          region: item.region || "",
+          country: item.country || "",
+        }));
   
-        // Extract matched objects from Fuse.js results
-        refinedResults = fuseResults.map((result) => result.item);
+        console.log("Sanitized Results for Fuzzy Search:", sanitizedResults);
+  
+        // Perform fuzzy search
+        const fuse = new Fuse(sanitizedResults, {
+          keys: [field], // Match the selected field
+          threshold: 0.4, // Adjust threshold for typo tolerance
+          ignoreLocation: true,
+          distance: 100, // Allow flexibility in matching distance
+        });
+  
+        const fuzzyResults = fuse.search(value.trim());
+        console.log("Fuzzy Results:", fuzzyResults);
+  
+        // Map fuzzy results back to the original data
+        refinedResults = fuzzyResults.map((result) => result.item);
+        totalRefinedResults = refinedResults.length; // Update total count to fuzzy-matched results
         console.log("Refined Results for Display:", refinedResults);
       }
-  
-      // Calculate total pages based on refined results
-      const totalResultsCount = refinedResults.length; // Total number of matched results
-      const totalPages = Math.ceil(totalResultsCount / limit);
   
       // Paginate refined results
       const startIndex = (page - 1) * limit;
       const paginatedResults = refinedResults.slice(startIndex, startIndex + limit);
   
-      console.log("Paginated Results:", paginatedResults);
-  
-      // Set state
-      setResults(paginatedResults); // Display only results for the current page
-      setTotalPages(totalPages); // Update total pages
+      setResults(paginatedResults);
+      setTotalPages(Math.ceil(totalRefinedResults / limit)); // Use the total refined results for page calculation
       setError("");
     } catch (err) {
-      console.error("Error in searchDestinations:", err.response?.data || err.message);
+      console.error("Error in searchDestinations:", err.message);
       setError("Error fetching destinations. Please try again.");
     }
   };
-  
   
   
 
@@ -281,26 +288,28 @@ const SearchDestination = () => {
               <strong>Longitude:</strong> {result.longitude}
             </p>
           {/* Add a map using Leaflet */}
-          {result.latitude && result.longitude && (
-              <div style={{ marginTop: "20px" }}>
+          {result.latitude && result.longitude ? (
+            <div style={{ marginTop: "20px" }}>
                 <MapContainer
-                  center={[result.latitude, result.longitude]}
-                  zoom={12}
-                  style={{ height: "300px", width: "100%", borderRadius: "8px" }}
+                center={[result.latitude, result.longitude]}
+                zoom={12}
+                style={{ height: "300px", width: "100%", borderRadius: "8px" }}
                 >
-                  <TileLayer
+                <TileLayer
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     attribution="&copy; <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors"
-                  />
-                  <Marker position={[result.latitude, result.longitude]}>
+                />
+                <Marker position={[result.latitude, result.longitude]}>
                     <Popup>
-                      {result.name} - {result.country}
+                    {result.name} - {result.country}
                     </Popup>
-                  </Marker>
+                </Marker>
                 </MapContainer>
-
-              </div>
+            </div>
+            ) : (
+            <p style={{ color: "red" }}>Location data unavailable for this destination.</p>
             )}
+
 
             <button
               onClick={() => handleDuckDuckGoSearch(result.name)}
