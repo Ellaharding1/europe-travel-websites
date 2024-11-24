@@ -23,9 +23,9 @@ const LoggedIn = () => {
   // Fetch user lists
   const fetchLists = async () => {
     try {
-      const email = localStorage.getItem("email"); // Get email from localStorage
+      const email = localStorage.getItem("email"); // Retrieve email from localStorage
       if (!email) {
-        setMessage("Email not found. Please log in again.");
+        console.error("Email not found in localStorage");
         return;
       }
   
@@ -33,12 +33,14 @@ const LoggedIn = () => {
         params: { email }, // Pass email as a query parameter
       });
   
-      setLists(response.data.lists || []);
+      setLists(response.data.lists || []); // Update state with the fetched lists
     } catch (err) {
       console.error("Error fetching lists:", err.response?.data || err.message);
       setMessage("Error fetching lists. Please try again.");
     }
   };
+  
+  
   
   
   
@@ -180,16 +182,29 @@ const LoggedIn = () => {
       >
         <h2>Your Travel Lists</h2>
         <div>
-  <h3>Your Lists</h3>
-  <ul>
-    {lists.length > 0 ? (
-      lists.map((list, index) => (
-        <li key={index}>{list.name || list}</li> // Adjust as per list structure
-      ))
-    ) : (
-      <p>No lists found.</p>
-    )}
-  </ul>
+        <h3>Your Lists</h3>
+        <ul>
+  {lists.length > 0 ? (
+    lists.map((list, index) => (
+      <li key={index}>
+        <strong>{list.listName}</strong>
+        <ul>
+          {list.destinationDetails && list.destinationDetails.length > 0 ? (
+            list.destinationDetails.map((destination, i) => (
+              <li key={i}>{destination.name || "Unknown"}</li> // Safely display destination names
+            ))
+          ) : (
+            <li>No destinations found.</li> // Handle empty destinationDetails
+          )}
+        </ul>
+      </li>
+    ))
+  ) : (
+    <p>No lists found.</p>
+  )}
+</ul>
+
+
 </div>
 
         <div style={{ marginTop: "20px" }}>

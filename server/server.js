@@ -10,6 +10,7 @@ const validator = require("validator");
 const fs = require("fs");
 const csv = require("csv-parser");
 
+
 const CSV_FILE_PATH = process.env.CSV_FILE_PATH || "data/destinations.csv";
 
 const app = express();
@@ -238,32 +239,30 @@ app.get("/search-destinations", async (req, res) => {
   }
 });
 
-app.post('/api/createLists', async (req, res) => {
+app.post("/api/createLists", async (req, res) => {
   try {
-    const { listName, destinationIDs, userName } = req.body; // Get data from the request body
+    const { listName, destinationIDs, email } = req.body; // Get email from the request body
 
-    // Validate input
-    if (!listName || !Array.isArray(destinationIDs) || !userName) {
-      return res
-        .status(400)
-        .json({ error: "List name, destination IDs, and user name are required." });
+    if (!listName || !Array.isArray(destinationIDs) || !email) {
+      return res.status(400).json({
+        error: "List name, destination IDs, and email are required.",
+      });
     }
-
     // Prepare the new list object
     const newList = {
       listName,
       destinationIDs,
       userName, // Name of the user creating the list
+      email,
       createdAt: new Date(), // Record the current timestamp
       destinationCount: destinationIDs.length, // Count the number of destinations
     };
 
-    // Insert the new list into the database
     const result = await db.collection("lists").insertOne(newList);
 
     res.status(201).json({
       message: "List created successfully.",
-      listId: result.insertedId, // Return the ID of the newly created list
+      listId: result.insertedId,
     });
   } catch (err) {
     console.error("Error creating list:", err.message);
@@ -298,27 +297,61 @@ app.post("/api/add-to-list", authenticateToken, async (req, res) => {
 
 
 
+const { ObjectId } = require("mongodb");
+
 app.get("/api/getLists", async (req, res) => {
   try {
-    const { email } = req.query; // Extract email from the query parameters
+    const email = req.query.email; // Extract email from query parameters
 
     if (!email) {
-      return res.status(400).json({ error: "Email is required to fetch lists." });
+      return res.status(400).json({ error: "Email is required." });
     }
 
-    // Find the user by email
-    const user = await usersCollection.findOne({ email });
+    // Fetch the user's lists by email
+    const lists = await db.collection("lists").find({ email }).toArray();
 
-    if (!user || !user.destinationList) {
-      return res.status(404).json({ error: "No lists found for this user." });
+    if (!lists || lists.length === 0) {
+      return res.status(200).json({ lists: [] }); // Return an empty list if none are found
     }
 
-    res.status(200).json({ lists: user.destinationList });
+    // Collect all destination IDs from the lists
+    const destinationIds = lists.flatMap((list) => list.destinationIDs || []);
+    const uniqueDestinationIds = [...new Set(destinationIds)]; // Remove duplicates
+
+    // Fetch the matching destinations from the database
+    const destinations = await db
+      .collection("destinations")
+      .find({ id: { $in: uniqueDestinationIds } }) // Match the `id` field
+      .toArray();
+
+    // Map destination IDs to their details
+    const destinationMap = destinations.reduce((map, destination) => {
+      map[destination.id] = destination; // Use the `id` as the key
+      return map;
+    }, {});
+
+    // Attach destination details to each list
+    const updatedLists = lists.map((list) => ({
+      ...list,
+      destinationDetails: (list.destinationIDs || []).map(
+        (id) => destinationMap[id] || { name: "Unknown" }
+      ),
+    }));
+
+    res.status(200).json({ lists: updatedLists });
   } catch (err) {
     console.error("Error fetching lists:", err.message);
     res.status(500).json({ error: "Error fetching lists: " + err.message });
   }
 });
+
+
+
+
+
+
+
+
 
 
 
