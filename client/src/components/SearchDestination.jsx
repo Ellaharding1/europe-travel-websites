@@ -4,8 +4,6 @@ import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import Fuse from "fuse.js";
 
-
-
 const SearchDestination = () => {
     const [field, setField] = useState("region");
     const [value, setValue] = useState("");
@@ -14,75 +12,114 @@ const SearchDestination = () => {
     const [results, setResults] = useState([]);
     const [totalPages, setTotalPages] = useState(0);
     const [error, setError] = useState("");
+    const [message, setMessage] = useState("");
+    const [isLoggedIn, setIsLoggedIn] = useState(false); // Track login status
+
+
 
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+
+  useEffect(() => {
+    // Check if a token exists in localStorage
+    const token = localStorage.getItem("token");
+    if (token) {
+      setIsLoggedIn(true);
+    } else {
+      setIsLoggedIn(false);
+    }
+  }, []);
 
   const searchDestinations = async () => {
     try {
       const params = {
         field,
-        value: value.trim(),
         page,
         limit,
       };
   
-      // Fetch paginated results from the backend
+      if (value.trim() !== "") {
+        params.value = value; // Include the search value if provided
+      }
+
+      
+  
+      // Fetch results from the backend (respects pagination)
       const response = await axios.get(`${BACKEND_URL}/search-destinations`, { params });
-      console.log("Backend Results:", response.data.results);
+  
   
       let refinedResults = response.data.results; // Default to backend results
-      let totalRefinedResults = response.data.totalCount; // Use backend-provided count for pagination
+      let totalPages = response.data.totalPages; // Default to backend-provided total pages
   
+      // Perform fuzzy matching only if a search value is provided
       if (value.trim() !== "") {
-        // Fetch all results for fuzzy matching
+        // Fetch all results (not paginated) for fuzzy matching
         const allResultsResponse = await axios.get(`${BACKEND_URL}/search-destinations`, {
           params: { field, page: 1, limit: 1000 }, // Fetch all data for fuzzy matching
         });
-  
-        console.log("All Backend Results for Fuzzy Matching:", allResultsResponse.data.results);
-  
-        // Prepare data for fuzzy search (preserve case sensitivity and original data)
-        const sanitizedResults = allResultsResponse.data.results.map((item) => ({
-          ...item,
-          name: item.name || "",
-          region: item.region || "",
-          country: item.country || "",
-        }));
-  
-        console.log("Sanitized Results for Fuzzy Search:", sanitizedResults);
-  
-        // Perform fuzzy search
-        const fuse = new Fuse(sanitizedResults, {
-          keys: [field], // Match the selected field
-          threshold: 0.4, // Adjust threshold for typo tolerance
-          ignoreLocation: true,
-          distance: 100, // Allow flexibility in matching distance
+    
+        // Use Fuse.js for fuzzy matching
+        const fuse = new Fuse(allResultsResponse.data.results, {
+          keys: ["name", "region", "country"], // Fields to fuzzy match
+          threshold: 0.4, // Typo tolerance
+          distance: 100, // Match within character distance
+          ignoreLocation: true, // Match anywhere in the string
         });
   
-        const fuzzyResults = fuse.search(value.trim());
-        console.log("Fuzzy Results:", fuzzyResults);
-  
-        // Map fuzzy results back to the original data
+        const fuzzyResults = fuse.search(value);
+    
+        // Map fuzzy results back to their original objects
         refinedResults = fuzzyResults.map((result) => result.item);
-        totalRefinedResults = refinedResults.length; // Update total count to fuzzy-matched results
-        console.log("Refined Results for Display:", refinedResults);
+  
+  
+        // Recalculate total pages for fuzzy-matched results
+        totalPages = Math.ceil(refinedResults.length / limit);
+  
+        // Apply pagination to fuzzy-matched results
+        const startIndex = (page - 1) * limit;
+        refinedResults = refinedResults.slice(startIndex, startIndex + limit);
       }
   
-      // Paginate refined results
-      const startIndex = (page - 1) * limit;
-      const paginatedResults = refinedResults.slice(startIndex, startIndex + limit);
-  
-      setResults(paginatedResults);
-      setTotalPages(Math.ceil(totalRefinedResults / limit)); // Use the total refined results for page calculation
+      // Set results and pagination details
+      setResults(refinedResults); // Use refined or backend results
+      setTotalPages(totalPages); // Keep recalculated totalPages for fuzzy or backend's total pages
       setError("");
     } catch (err) {
-      console.error("Error in searchDestinations:", err.message);
+      console.error("Error fetching destinations:", err.message);
       setError("Error fetching destinations. Please try again.");
+    }
+  };
+
+  const handleAddToList = async (destinationId) => {
+    const token = localStorage.getItem("token");
+  
+    if (!token) {
+      alert("You must log in to add destinations to your list.");
+      return;
+    }
+  
+    try {
+      const response = await axios.post(
+        `${BACKEND_URL}/add-to-list`,
+        { destinationId },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`, // Include the token in the header
+          },
+        }
+      );
+      alert(response.data.message || "Destination added to your list!");
+    } catch (err) {
+      console.error("Error adding to list:", err);
+      if (err.response?.status === 403) {
+        alert("Unauthorized. Please log in to use this feature.");
+      } else {
+        alert(err.response?.data?.error || "Failed to add to list.");
+      }
     }
   };
   
   
-
+  
   useEffect(() => {
     searchDestinations();
   }, [page, limit]);
@@ -239,6 +276,19 @@ const SearchDestination = () => {
               marginRight: "100px",
             }}
           >
+
+
+      <div key={result.id}>
+        {isLoggedIn ? (
+          <button onClick={() => handleAddToList(result.id)}>Add to List</button>
+        ) : (
+          <button disabled>
+            Please log in to add destinations to your list
+          </button>
+        )}
+      </div>
+    
+
             <h2 style={{ color: "#333" }}>{result.name}</h2>
             <p>
               <strong>Region:</strong> {result.region}
@@ -246,6 +296,7 @@ const SearchDestination = () => {
             <p>
               <strong>Country:</strong> {result.country}
             </p>
+
             <p>
               <strong>Category:</strong> {result.category}
             </p>
@@ -309,7 +360,6 @@ const SearchDestination = () => {
             ) : (
             <p style={{ color: "red" }}>Location data unavailable for this destination.</p>
             )}
-
 
             <button
               onClick={() => handleDuckDuckGoSearch(result.name)}

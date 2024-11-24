@@ -13,10 +13,15 @@ const csv = require("csv-parser");
 const CSV_FILE_PATH = process.env.CSV_FILE_PATH || "data/destinations.csv";
 
 const app = express();
+app.use(cors());
+
 const PORT = process.env.PORT || 3000; // Default to 3000 if PORT is not in .env
 const DATABASE_URI = process.env.DATABASE_URI;
 const TOKEN_SECRET = process.env.TOKEN_SECRET;
 const FRONTEND_URL = process.env.FRONTEND_URL;
+
+const listsData = {}; // Temporary in-memory storage for lists
+
 
 
 // Enable CORS
@@ -37,20 +42,35 @@ const db = client.db("lab4_database");
 const usersCollection = db.collection("users");
 
 // Middleware for token authentication
-function authenticateToken(req, res, next) {
-  const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1];
-
+async function authenticateToken(req, res, next) {
+  const token = req.headers["authorization"]?.split(" ")[1];
   if (!token) return res.status(401).json({ error: "Access denied. No token provided." });
 
   try {
-    const decoded = jwt.verify(token, TOKEN_SECRET);
-    req.user = decoded; // Attach the user payload to the request
-    next();
+    const decoded = jwt.decode(token); // Decode to get user ID
+    if (!decoded?.id) {
+      return res.status(403).json({ error: "Invalid token payload." });
+    }
+
+    const user = await usersCollection.findOne({ _id: new MongoClient.ObjectID(decoded.id) });
+    if (!user) {
+      return res.status(404).json({ error: "User not found." });
+    }
+
+    jwt.verify(token, user.secretKey, (err, verified) => {
+      if (err) return res.status(403).json({ error: "Invalid token." });
+      req.user = verified; // Attach the verified user info to the request
+      next();
+    });
   } catch (err) {
-    res.status(403).json({ error: "Invalid token." });
+    console.error("Error verifying token:", err.message);
+    res.status(500).json({ error: "Failed to authenticate token." });
   }
 }
+
+
+
+
 
 // Initialize and connect to MongoDB
 (async () => {
@@ -95,7 +115,7 @@ function authenticateToken(req, res, next) {
 
       await usersCollection.insertOne(newUser);
 
-      const token = jwt.sign({ email }, secretKey, { expiresIn: "1h" });
+      const token = jwt.sign({ id: user._id, email: user.email }, user.secretKey, { expiresIn: "1h" });
 
       const verificationLink = `${FRONTEND_URL}/verify-email?token=${token}`;
       console.log(`Verification link: ${verificationLink}`);
@@ -184,27 +204,26 @@ function authenticateToken(req, res, next) {
   });
 
 // Search for destinations
+// Backend: Search for destinations
 app.get("/search-destinations", async (req, res) => {
   try {
-    const { field, value = "", page = 1, limit = 5 } = req.query;
+    const { field, value, page = 1, limit = 5 } = req.query;
 
-    // Prepare query
     const query = {};
-    if (value.trim() !== "") {
-      query[field] = { $regex: `^${value.trim()}`, $options: "i" }; // Match field starts with value
+    if (value) {
+      query[field] = { $regex: `${value}`, $options: "i" };
     }
 
     const pageNumber = parseInt(page, 10);
     const limitNumber = parseInt(limit, 10);
 
-    // Fetch results with pagination
-    const results = await db.collection("destinations")
+    const results = await db
+      .collection("destinations")
       .find(query)
       .skip((pageNumber - 1) * limitNumber)
       .limit(limitNumber)
       .toArray();
 
-    // Fetch all results for total count
     const totalCount = await db.collection("destinations").countDocuments(query);
 
     res.status(200).json({
@@ -214,10 +233,104 @@ app.get("/search-destinations", async (req, res) => {
       totalPages: Math.ceil(totalCount / limitNumber),
     });
   } catch (err) {
-    console.error("Error fetching destinations:", err.message);
-    res.status(500).json({ error: "Error fetching destinations: " + err.message });
+    console.error("Error searching destinations:", err.message);
+    res.status(500).json({ error: "Error searching destinations: " + err.message });
   }
 });
+
+app.post('/api/createLists', async (req, res) => {
+  try {
+    const { listName, destinationIDs, userName } = req.body; // Get data from the request body
+
+    // Validate input
+    if (!listName || !Array.isArray(destinationIDs) || !userName) {
+      return res
+        .status(400)
+        .json({ error: "List name, destination IDs, and user name are required." });
+    }
+
+    // Prepare the new list object
+    const newList = {
+      listName,
+      destinationIDs,
+      userName, // Name of the user creating the list
+      createdAt: new Date(), // Record the current timestamp
+      destinationCount: destinationIDs.length, // Count the number of destinations
+    };
+
+    // Insert the new list into the database
+    const result = await db.collection("lists").insertOne(newList);
+
+    res.status(201).json({
+      message: "List created successfully.",
+      listId: result.insertedId, // Return the ID of the newly created list
+    });
+  } catch (err) {
+    console.error("Error creating list:", err.message);
+    res.status(500).json({ error: "Error creating list: " + err.message });
+  }
+});
+
+app.post("/api/add-to-list", authenticateToken, async (req, res) => {
+  const { listName, destinationId } = req.body;
+  const userEmail = req.user.email; // Extracted from the token
+
+  if (!listName || !destinationId) {
+    return res.status(400).json({ error: "List name and destination ID are required." });
+  }
+
+  try {
+    const userList = await db.collection("lists").findOne({ listName, userEmail });
+    if (!userList) {
+      return res.status(404).json({ error: "List not found." });
+    }
+
+    await db.collection("lists").updateOne(
+      { listName, userEmail },
+      { $push: { destinations: destinationId } }
+    );
+
+    res.json({ message: "Destination added to your list." });
+  } catch (err) {
+    res.status(500).json({ error: "Error adding destination to list: " + err.message });
+  }
+});
+
+
+
+app.get("/api/getLists", async (req, res) => {
+  try {
+    const { email } = req.query; // Extract email from the query parameters
+
+    if (!email) {
+      return res.status(400).json({ error: "Email is required to fetch lists." });
+    }
+
+    // Find the user by email
+    const user = await usersCollection.findOne({ email });
+
+    if (!user || !user.destinationList) {
+      return res.status(404).json({ error: "No lists found for this user." });
+    }
+
+    res.status(200).json({ lists: user.destinationList });
+  } catch (err) {
+    console.error("Error fetching lists:", err.message);
+    res.status(500).json({ error: "Error fetching lists: " + err.message });
+  }
+});
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

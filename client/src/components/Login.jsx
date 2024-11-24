@@ -1,9 +1,12 @@
 import React, { useState } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 
 function Login() {
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -12,26 +15,33 @@ function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!formData.email || !formData.password) {
+      setMessage("Email and password are required.");
+      return;
+    }
+    setLoading(true);
     try {
-      // Use environment variable for the backend URL
       const response = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/login`, formData);
       setMessage("Login successful!");
-      localStorage.setItem("token", response.data.token); // Save token for authenticated routes
+
+      // Save token and email
+      localStorage.setItem("token", response.data.token);
+      localStorage.setItem("email", formData.email);
+
+      // Redirect to logged-in page
+      navigate("/loggedIn");
     } catch (error) {
       setMessage(
         error.response?.data?.error || "An error occurred during login. Please try again."
       );
+    } finally {
+      setLoading(false);
     }
   };
 
   const renderMessage = () => {
     if (!message) return null;
-
-    if (typeof message === "object") {
-      return JSON.stringify(message); // Handle cases where message is an object
-    }
-
-    return message; // Render the string message
+    return typeof message === "object" ? JSON.stringify(message) : message;
   };
 
   return (
@@ -60,14 +70,15 @@ function Login() {
           type="submit"
           style={{
             padding: "10px 20px",
-            backgroundColor: "#007BFF",
+            backgroundColor: loading ? "#CCCCCC" : "#007BFF",
             color: "#FFF",
             border: "none",
             borderRadius: "5px",
-            cursor: "pointer",
+            cursor: loading ? "not-allowed" : "pointer",
           }}
+          disabled={loading}
         >
-          Login
+          {loading ? "Logging in..." : "Login"}
         </button>
       </form>
       {message && (

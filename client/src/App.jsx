@@ -8,6 +8,7 @@ import EmailVerification from "./components/EmailVerification";
 import SearchDestination from "./components/SearchDestination";
 import theme from "./theme"; // Import the custom theme
 import logo from "../img/logo.png";
+import LoggedIn from "./components/LoggedIn";
 
 
 // HomePage component with proper centering
@@ -109,7 +110,9 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/verify-email" element={<EmailVerification />} />
             <Route path="/search-destination" element={<SearchDestination />} />
+            <Route path="/loggedIn" element={<LoggedIn />} /> {/* New route */}
           </Routes>
+
 
 
         </div>
