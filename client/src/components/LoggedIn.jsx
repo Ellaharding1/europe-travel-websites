@@ -4,78 +4,90 @@ import SearchDestination from "./SearchDestination";
 
 const LoggedIn = () => {
   const [lists, setLists] = useState([]);
-  const [currentListName, setCurrentListName] = useState("");
   const [listName, setListName] = useState("");
   const [message, setMessage] = useState("");
-  const [userEmail, setUserEmail] = useState("");
-  const [selectedList, setSelectedList] = useState(null); // Track selected list
-
-  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
-
+  const [userEmail, setUserEmail] = useState(localStorage.getItem("email") || ""); // Fetch email once
+  const [selectedList, setSelectedList] = useState(null); // Track selected list name
+  const [selectedListId, setSelectedListId] = useState(null); // Track selected list ID
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem("token"));
 
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    setIsLoggedIn(!!token);
-  }, []);
-  
-
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    setIsLoggedIn(!!token); // Dynamically update the state
-  }, []);
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
   // Fetch lists for the logged-in user
   const fetchLists = useCallback(async () => {
     try {
-      const email = localStorage.getItem("email");
-      if (!email) {
-        console.error("Email not found in localStorage");
+      if (!userEmail) {
+        console.error("User email not found.");
         return;
       }
-  
+
       const response = await axios.get(`${BACKEND_URL}/api/getLists`, {
-        params: { email },
+        params: { email: userEmail },
       });
-  
+
       console.log("Fetched lists:", response.data.lists); // Debug fetched lists
       setLists(response.data.lists || []); // Update state with new lists
+
+      // Find and update the selected list
+      const selectedList = response.data.lists.find((list) => list.selected);
+      if (selectedList) {
+        setSelectedList(selectedList.listName);
+        setSelectedListId(selectedList._id); // Update ID if selected
+      } else {
+        setSelectedList(null);
+        setSelectedListId(null);
+      }
     } catch (err) {
       console.error("Error fetching lists:", err.message);
     }
-  }, []);
-  
+  }, [userEmail]);
 
-  
   useEffect(() => {
     fetchLists();
   }, [fetchLists]);
-  
 
-  const handleAddToList = async (destinationId) => {
-    if (!selectedList) {
-      setMessage("Please select a list first.");
-      return;
-    }
-  
+  const handleSelectList = async (list) => {
     try {
-      const response = await axios.post(`${BACKEND_URL}/api/add-to-list`, {
-        listName: selectedList,
-        destinationId,
+      const email = localStorage.getItem("email");
+      if (!email) {
+        console.error("User email not found.");
+        return;
+      }
+  
+      await axios.patch(`${BACKEND_URL}/api/select-list`, {
+        listName: list.listName,
+        email,
       });
   
-      console.log("Add to list response:", response.data);
-  
-      // Fetch updated lists from the server
-      fetchLists();
-  
-      setMessage(response.data.message || "Destination added successfully!");
+      setSelectedList(list.listName);
+      setSelectedListId(list._id); // Update selected list ID
+      setMessage(`List "${list.listName}" selected successfully.`);
+      fetchLists(); // Refresh lists
     } catch (err) {
-      console.error("Error adding to list:", err.message);
-      setMessage(err.response?.data?.error || "Failed to add destination.");
+      console.error("Error selecting list:", err.response?.data?.error || err.message);
+      setMessage("Failed to select the list.");
     }
   };
   
+
+  const handleDeselectList = async () => {
+    try {
+      if (!userEmail) {
+        console.error("User email not found.");
+        return;
+      }
+
+      await axios.patch(`${BACKEND_URL}/api/deselect-list`, { email: userEmail });
+
+      setSelectedList(null); // Clear selected list name
+      setSelectedListId(null); // Clear selected list ID
+      setMessage("List deselected successfully.");
+      fetchLists(); // Refresh lists
+    } catch (err) {
+      console.error("Error deselecting list:", err.response?.data?.error || err.message);
+      setMessage("Failed to deselect the list.");
+    }
+  };
 
   const handleCreateList = async () => {
     if (!listName.trim()) {
@@ -98,77 +110,20 @@ const LoggedIn = () => {
     }
   };
 
-  // **Delete a List**
-  const handleDeleteList = async (listName) => {
+  const handleDeleteList = async (list) => {
     try {
-      const response = await axios.post(`${BACKEND_URL}/api/deleteList`, {
-        listName,
+      await axios.post(`${BACKEND_URL}/api/deleteList`, {
+        listName: list.listName,
         email: userEmail,
       });
 
-      setMessage(response.data.message || "List deleted successfully.");
+      setMessage(`List "${list.listName}" deleted successfully.`);
       fetchLists();
     } catch (err) {
       console.error("Error deleting list:", err.message);
       setMessage("Error deleting list. Please try again.");
     }
   };
-
-  const addToList = async (destination) => {
-    if (!selectedList) {
-      setMessage("Please select a list first.");
-      return;
-    }
-  
-    try {
-      const response = await axios.post(`${BACKEND_URL}/api/add-to-list`, {
-        listName: selectedList,
-        destinationId: destination.id, // Use destination object directly
-      });
-  
-      setMessage(response.data.message || "Destination added successfully.");
-      fetchLists(); // Refresh the lists to reflect changes
-    } catch (err) {
-      console.error("Error adding to list:", err.message);
-      setMessage(err.response?.data?.error || "Failed to add destination.");
-    }
-  };
-  
-  
-
-  const handleSelectList = async (listName) => {
-    try {
-      const email = localStorage.getItem("email");
-      await axios.patch(`${BACKEND_URL}/api/select-list`, { listName, email });
-
-      setSelectedList(listName);
-      fetchLists(); // Refresh lists
-    } catch (err) {
-      console.error("Error selecting list:", err.message);
-    }
-  };
-  const handleDeselectList = async () => {
-    try {
-      const email = localStorage.getItem("email");
-  
-      if (!email) {
-        setMessage("User email not found.");
-        return;
-      }
-  
-      const response = await axios.patch(`${BACKEND_URL}/api/deselect-list`, { email });
-  
-      setSelectedList(null); // Clear the local state
-      setMessage(response.data.message || "List deselected successfully.");
-      fetchLists(); // Refresh lists
-    } catch (err) {
-      console.error("Error deselecting list:", err.response?.data?.error || err.message);
-      setMessage(err.response?.data?.error || "Failed to deselect the list.");
-    }
-  };
-  
-  
-  
   
   
 
@@ -196,11 +151,10 @@ const LoggedIn = () => {
   
         {/* Search Destination Component */}
         <SearchDestination
-        selectedList={selectedList}
-        setSelectedList={setSelectedList}
-        fetchLists={fetchLists} // Pass the fetchLists function as a prop
-        handleAddToList={handleAddToList} // Pass handleAddToList
-        handleCreateList={handleCreateList} // Pass handleCreateList
+  selectedList={selectedList}
+  selectedListId={selectedListId} // Pass the selected list ID
+  setSelectedList={setSelectedList}
+  fetchLists={fetchLists}
           addToList={(destination) => {
             if (!currentListName) {
               setMessage("Please select a list to add destinations.");
@@ -267,9 +221,9 @@ const LoggedIn = () => {
     <h3>Your Lists</h3>
     <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
       {lists.length > 0 ? (
-        lists.map((list, index) => (
+        lists.map((list) => (
           <div
-            key={index}
+            key={list._id}
             style={{
               padding: "15px",
               border: `2px solid ${list.selected ? "green" : "#ddd"}`,
@@ -295,40 +249,38 @@ const LoggedIn = () => {
               </p>
             )}
 
-<div style={{ display: "flex", justifyContent: "space-between" }}>
-  {list.selected ? (
-    <button
-      style={{
-        padding: "10px 15px",
-        backgroundColor: "red",
-        color: "white",
-        border: "none",
-        borderRadius: "5px",
-        cursor: "pointer",
-        transition: "background-color 0.3s ease",
-      }}
-      onClick={handleDeselectList} // Use the updated function here
-    >
-      Deselect
-    </button>
-  ) : (
-    <button
-      style={{
-        padding: "10px 15px",
-        backgroundColor: "blue",
-        color: "white",
-        border: "none",
-        borderRadius: "5px",
-        cursor: "pointer",
-        transition: "background-color 0.3s ease",
-      }}
-      onClick={() => handleSelectList(list.listName)} // Call handleSelectList for selection
-    >
-      Select
-    </button>
-  )}
-
-
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              {list.selected ? (
+                <button
+                  style={{
+                    padding: "10px 15px",
+                    backgroundColor: "red",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "5px",
+                    cursor: "pointer",
+                    transition: "background-color 0.3s ease",
+                  }}
+                  onClick={handleDeselectList}
+                >
+                  Deselect
+                </button>
+              ) : (
+                <button
+                  style={{
+                    padding: "10px 15px",
+                    backgroundColor: "blue",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "5px",
+                    cursor: "pointer",
+                    transition: "background-color 0.3s ease",
+                  }}
+                  onClick={() => handleSelectList(list)}
+                >
+                  Select
+                </button>
+              )}
 
               <button
                 style={{
@@ -340,7 +292,7 @@ const LoggedIn = () => {
                   cursor: "pointer",
                   transition: "background-color 0.3s ease",
                 }}
-                onClick={() => handleDeleteList(list.listName)} // Delete the list
+                onClick={() => handleDeleteList(list)}
               >
                 Delete List
               </button>
@@ -353,6 +305,7 @@ const LoggedIn = () => {
     </div>
   </div>
 </div>
+
 
     </div>
   );

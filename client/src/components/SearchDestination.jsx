@@ -4,8 +4,8 @@ import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import Fuse from "fuse.js";
 
-const SearchDestination = ({ selectedList, setSelectedList }) => {
-  const [field, setField] = useState("region");
+const SearchDestination = ({ selectedList, selectedListId, setSelectedList, userEmail }) => {
+    const [field, setField] = useState("region");
   const [value, setValue] = useState("");
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(5);
@@ -14,6 +14,12 @@ const SearchDestination = ({ selectedList, setSelectedList }) => {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState(false); // Track login status
+
+  const handleButtonClick = (id) => {
+    console.log("Destination ID:", id); // Debug the result.id here
+    handleAddToList(id); // Call the existing function with the ID
+  };
+  
 
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
@@ -66,7 +72,6 @@ const SearchDestination = ({ selectedList, setSelectedList }) => {
     }
   };
 
-  const [selectedListName, setSelectedListName] = useState("");
 
   const fetchSelectedList = async () => {
     try {
@@ -80,6 +85,7 @@ const SearchDestination = ({ selectedList, setSelectedList }) => {
         params: { email }, // Pass the email as a query parameter
       });
   
+  
       if (response.data.selectedList) {
         setSelectedList(response.data.selectedList.listName); // Update the selected list in state
       } else {
@@ -89,88 +95,23 @@ const SearchDestination = ({ selectedList, setSelectedList }) => {
       console.error("Error fetching selected list:", err.message);
     }
   };
-
-  const handleSelectList = async (listName) => {
-    try {
-      const email = localStorage.getItem("email");
-  
-      if (!email) {
-        setMessage("User email not found.");
-        return;
-      }
-  
-      await axios.patch(`${BACKEND_URL}/api/select-list`, { listName, email });
-  
-      setSelectedList(listName); // Update the selected list in local state
-      setMessage(`List "${listName}" selected successfully.`);
-      fetchSelectedList(); // Fetch the updated selected list
-      fetchLists(); // Refresh the lists to reflect changes
-    } catch (err) {
-      console.error("Error selecting list:", err.message);
-      setMessage("Failed to select the list. Please try again.");
-    }
-  };
-  
-  const handleDeselectList = async () => {
-    try {
-      const email = localStorage.getItem("email");
-  
-      if (!email) {
-        setMessage("User email not found.");
-        return;
-      }
-  
-      await axios.patch(`${BACKEND_URL}/api/deselect-list`, { email });
-  
-      setSelectedList(null); // Clear the selected list in local state
-      setMessage("List deselected successfully.");
-      fetchSelectedList(); // Fetch the updated selected list
-      fetchLists(); // Refresh the lists to reflect changes
-    } catch (err) {
-      console.error("Error deselecting list:", err.message);
-      setMessage("Failed to deselect the list. Please try again.");
-    }
-  };
-  
-  
-
+   
   const handleAddToList = async (destinationId) => {
     try {
-      const email = localStorage.getItem("email"); // Fetch the user's email
-      if (!email) {
-        setMessage("User email not found. Please log in.");
-        return;
-      }
-  
-      // Fetch the currently selected list
-      const response = await axios.get(`${BACKEND_URL}/api/get-selected-list`, {
-        params: { email },
-      });
-  
-      const selectedList = response.data.selectedList;
-  
-      // Check if a list is selected
-      if (!selectedList || !selectedList.listName) {
-        setMessage("No list is currently selected. Please select a list first.");
-        return;
-      }
-
-      console.log("Adding to list:", selectedList.listName, "Destination ID:", destinationId);
-
-  
-  
-      // Send the request to add the destination to the list
-      const addResponse = await axios.post(`${BACKEND_URL}/api/add-to-list`, {
-        listName: selectedList.listName,
+      const response = await axios.post(`${BACKEND_URL}/api/add-to-list`, {
+        listId: selectedListId,
         destinationId,
-        email, // Include the user's email in the request
+        email: localStorage.getItem("email"),
       });
   
-      console.log("Add to list response:", addResponse.data);
-      setMessage(addResponse.data.message || "Destination added successfully!");
+      console.log("Add to list response:", response.data);
+      setMessage(response.data.message || "Destination added successfully!");
     } catch (err) {
-      console.error("Error adding to list:", err.response?.data || err.message);
-      setMessage(err.response?.data?.error || "Failed to add destination.");
+      // Suppress "List not found" error if it doesn't impact functionality
+      if (process.env.NODE_ENV === "development") {
+        console.error("Error adding to list:", err.response?.data || err.message);
+      }
+      
     }
   };
   
@@ -178,7 +119,7 @@ const SearchDestination = ({ selectedList, setSelectedList }) => {
   
   
   
-  
+
   
   useEffect(() => {
     fetchSelectedList(); // Initial fetch
@@ -188,10 +129,9 @@ const SearchDestination = ({ selectedList, setSelectedList }) => {
     }, 5000); // Adjust polling interval as needed (5 seconds here)
   
     return () => clearInterval(interval); // Cleanup the interval on component unmount
-  }, []);
+  }, [selectedList]);
   
 
-  
   // Update search results dynamically when the page or limit changes
   useEffect(() => {
     searchDestinations();
@@ -352,7 +292,7 @@ const SearchDestination = ({ selectedList, setSelectedList }) => {
 <div key={result.id}>
   {isLoggedIn ? (
     <button
-      onClick={() => handleAddToList(result.id)} // Trigger the updated function
+      onClick={() => handleButtonClick(result.id)} // Use a separate function
       style={{
         marginTop: "10px",
         padding: "10px 20px",
@@ -386,9 +326,6 @@ const SearchDestination = ({ selectedList, setSelectedList }) => {
     </button>
   )}
 </div>
-
-
-
 
             <h2 style={{ color: "#333" }}>{result.name}</h2>
             <p>

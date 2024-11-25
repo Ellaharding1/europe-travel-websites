@@ -2,93 +2,78 @@ require("dotenv").config(); // Load environment variables
 
 const express = require("express");
 const cors = require("cors");
-const { MongoClient } = require("mongodb");
+const { MongoClient, ObjectId } = require("mongodb");
 const bcrypt = require("bcrypt");
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const validator = require("validator");
-const fs = require("fs");
-const csv = require("csv-parser");
 
+const app = express(); // Initialize the app **before** using it
 
-const CSV_FILE_PATH = process.env.CSV_FILE_PATH || "data/destinations.csv";
-
-const app = express();
-app.use(cors());
-
-const PORT = process.env.PORT || 3000; // Default to 3000 if PORT is not in .env
-const DATABASE_URI = process.env.DATABASE_URI;
-const TOKEN_SECRET = process.env.TOKEN_SECRET;
-const FRONTEND_URL = process.env.FRONTEND_URL;
-
-const listsData = {}; // Temporary in-memory storage for lists
-
-
-
-// Enable CORS
+// Middleware setup
+console.log("Initializing middleware...");
+app.use(express.json()); // JSON parser
 app.use(
   cors({
-    origin: FRONTEND_URL,
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    origin: process.env.FRONTEND_URL, // Ensure this matches your frontend URL
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
     credentials: true,
   })
 );
 
-// Middleware
-app.use(express.json());
+const PORT = process.env.PORT || 3000;
+const DATABASE_URI = process.env.DATABASE_URI;
 
 // MongoDB Setup
 const client = new MongoClient(DATABASE_URI);
-const db = client.db("lab4_database");
-const usersCollection = db.collection("users");
-
-// Middleware for token authentication
-async function authenticateToken(req, res, next) {
-  const token = req.headers["authorization"]?.split(" ")[1];
-  if (!token) return res.status(401).json({ error: "Access denied. No token provided." });
-
-  try {
-    const decoded = jwt.decode(token); // Decode to get user ID
-    if (!decoded?.id) {
-      return res.status(403).json({ error: "Invalid token payload." });
-    }
-
-    const user = await usersCollection.findOne({ _id: new MongoClient.ObjectID(decoded.id) });
-    if (!user) {
-      return res.status(404).json({ error: "User not found." });
-    }
-
-    jwt.verify(token, user.secretKey, (err, verified) => {
-      if (err) return res.status(403).json({ error: "Invalid token." });
-      req.user = verified; // Attach the verified user info to the request
-      next();
-    });
-  } catch (err) {
-    console.error("Error verifying token:", err.message);
-    res.status(500).json({ error: "Failed to authenticate token." });
-  }
-}
-
-
-
-
 
 // Initialize and connect to MongoDB
 (async () => {
   try {
     await client.connect();
     console.log("Connected to MongoDB");
-  } catch (err) {
-    console.error("Failed to connect to MongoDB:", err);
-    process.exit(1);
-  }
 
-  // Start the server
-  app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
-  });
+    const db = client.db("lab4_database");
+    const usersCollection = db.collection("users");
+    const listsCollection = db.collection("lists");
+    const destinationsCollection = db.collection("destinations");
 
-  // Register User
+    // Define routes here (example)
+    app.get("/", (req, res) => {
+      res.send("Server is up and running!");
+    });
+
+    app.post("/api/add-to-list", async (req, res) => {
+      const { listId, destinationId, email } = req.body;
+    
+      if (!listId || !destinationId || !email) {
+        return res.status(400).json({ error: "List ID, destination ID, and email are required." });
+      }
+    
+      try {
+        const updatedList = await db.collection("lists").findOneAndUpdate(
+          { _id: new ObjectId(listId), email: email.trim() },
+          { $addToSet: { destinationIDs: destinationId } },
+          { returnDocument: "after" }
+        );
+    
+        if (!updatedList.value) {
+          return res.status(404).json({ error: "List not found." });
+        }
+    
+        res.status(200).json({
+          message: "Destination added successfully!",
+          updatedList: updatedList.value,
+        });
+      } catch (err) {
+        console.error("Error in add-to-list:", err.message);
+        res.status(500).json({ error: "Internal server error." });
+      }
+    });
+    
+    
+    
+    // Register User
   app.post("/register", async (req, res) => {
     const { email, password, nickname } = req.body;
 
@@ -265,43 +250,6 @@ app.post("/api/createList", async (req, res) => {
 });
 
 
-app.post("/api/add-to-list", async (req, res) => {
-  try {
-    const { listName, destinationId, email } = req.body;
-    console.log("Request to add destination:", req.body);
-
-
-    console.log("Incoming request:", { listName, destinationId, email }); // Debugging
-
-    // Validate input
-    if (!listName || !destinationId || !email) {
-      return res.status(400).json({ error: "List name, destination ID, and email are required." });
-    }
-
-    // Query the database
-    const updatedList = await db.collection("lists").findOneAndUpdate(
-      { listName, email }, // Match listName and email
-      { $addToSet: { destinationIDs: destinationId } }, // Add the destination
-      { returnDocument: "after" } // Return the updated document
-    );
-
-    if (!updatedList.value) {
-      console.log("List not found for:", { listName, email }); // Debugging
-      return res.status(404).json({ error: "List not found." });
-    }
-
-    res.status(200).json({
-      message: "Destination added successfully.",
-      updatedList: updatedList.value,
-    });
-  } catch (err) {
-    console.error("Error adding destination:", err);
-    res.status(500).json({ error: "Internal server error." });
-  }
-});
-
-
-
 
 
 // Update list selection status
@@ -366,7 +314,6 @@ app.get("/api/get-selected-list", async (req, res) => {
 });
 
 app.patch("/api/deselect-list", async (req, res) => {
-  console.log("Request received at /api/deselect-list:", req.body);
 
   try {
     const { email } = req.body;
@@ -393,7 +340,6 @@ app.patch("/api/deselect-list", async (req, res) => {
 });
 
 
-const { ObjectId } = require("mongodb");
 
 app.get("/api/getLists", async (req, res) => {
   try {
@@ -444,40 +390,16 @@ app.get("/api/getLists", async (req, res) => {
   }
 });
 
+app.listen(PORT, () => {
+  console.log(`Server is running on http://localhost:${PORT}`);
+});
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-  
-  
-  
-  
-  
-  
-  
-  
-
-
+} catch (err) {
+  console.error("Failed to connect to MongoDB:", err.message);
+  process.exit(1);
+}
   
 })();
 // Route to trigger the CSV import (optional)
@@ -534,10 +456,44 @@ app.get("/api/getLists", async (req, res) => {
 } */
 // Route to trigger the CSV import (optional)
 /* app.get("/import-csv", async (req, res) => {
+
   try {
     await importCSVtoMongoDB(); // Call the import function
     res.send("CSV imported successfully.");
   } catch (err) {
     res.status(500).send("Error importing CSV: " + err.message);
   }
-}); */
+}); 
+
+
+// Middleware for token authentication
+async function authenticateToken(req, res, next) {
+  const token = req.headers["authorization"]?.split(" ")[1];
+  if (!token) return res.status(401).json({ error: "Access denied. No token provided." });
+
+  try {
+    const decoded = jwt.decode(token); // Decode to get user ID
+    if (!decoded?.id) {
+      return res.status(403).json({ error: "Invalid token payload." });
+    }
+
+    const user = await usersCollection.findOne({ _id: new MongoClient.ObjectID(decoded.id) });
+    if (!user) {
+      return res.status(404).json({ error: "User not found." });
+    }
+
+    jwt.verify(token, user.secretKey, (err, verified) => {
+      if (err) return res.status(403).json({ error: "Invalid token." });
+      req.user = verified; // Attach the verified user info to the request
+      next();
+    });
+  } catch (err) {
+    console.error("Error verifying token:", err.message);
+    res.status(500).json({ error: "Failed to authenticate token." });
+  }
+}*/
+
+// Middleware
+ // Start the server
+
+  
