@@ -232,7 +232,6 @@ app.get("/search-destinations", async (req, res) => {
     res.status(500).json({ error: "Error searching destinations: " + err.message });
   }
 });
-
 app.post("/api/createList", async (req, res) => {
   try {
     const { email, listName, description = "", visibility = "private" } = req.body;
@@ -241,17 +240,26 @@ app.post("/api/createList", async (req, res) => {
       return res.status(400).json({ error: "Email and list name are required." });
     }
 
+    // Trim inputs
+    const trimmedListName = listName.trim();
+    const trimmedDescription = description.trim();
+
+    // Check if a list with the same name already exists for the user
+    const existingList = await db.collection("lists").findOne({ email, listName: trimmedListName });
+    if (existingList) {
+      return res.status(400).json({ error: "List name must be unique for each user." });
+    }
+
     // Check if the user already has 20 lists
     const userListsCount = await db.collection("lists").countDocuments({ email });
     if (userListsCount >= 20) {
-      return res
-        .status(400)
-        .json({ error: "You cannot create more than 20 lists." });
+      return res.status(400).json({ error: "You cannot create more than 20 lists." });
     }
 
+    // Create new list
     const newList = {
-      listName,
-      description,
+      listName: trimmedListName,
+      description: trimmedDescription,
       visibility,
       destinationIDs: [],
       email,
@@ -261,16 +269,14 @@ app.post("/api/createList", async (req, res) => {
 
     const result = await db.collection("lists").insertOne(newList);
 
+    console.log(`List "${trimmedListName}" created for user "${email}"`);
+
     res.status(201).json({ message: "List created successfully.", listId: result.insertedId });
   } catch (err) {
     console.error("Error creating list:", err.message);
     res.status(500).json({ error: "Failed to create list: " + err.message });
   }
 });
-
-
-
-
 
 // Update list selection status
 app.patch("/api/select-list", async (req, res) => {
@@ -305,8 +311,6 @@ app.patch("/api/select-list", async (req, res) => {
     res.status(500).json({ error: "Internal server error." });
   }
 });
-
-
 // Backend route to get the selected list
 app.get("/api/get-selected-list", async (req, res) => {
   try {
@@ -358,8 +362,6 @@ app.patch("/api/deselect-list", async (req, res) => {
     res.status(500).json({ error: "Internal server error." });
   }
 });
-
-
 
 app.get("/api/getLists", async (req, res) => {
   try {

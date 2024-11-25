@@ -136,6 +136,12 @@ const LoggedIn = () => {
       return;
     }
 
+    // Frontend validation to check if the list name already exists
+    if (lists.some((list) => list.listName.toLowerCase() === listName.toLowerCase())) {
+      setMessage("A list with this name already exists.");
+    return;
+    }
+
     try {
       await axios.post(`${BACKEND_URL}/api/createList`, {
         email: userEmail,
