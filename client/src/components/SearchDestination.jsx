@@ -136,43 +136,45 @@ const SearchDestination = ({ selectedList, setSelectedList }) => {
 
   const handleAddToList = async (destinationId) => {
     try {
-      // Check if a list is selected (in the backend, it is identified by `selected: true`)
-      const email = localStorage.getItem("email"); // Fetch user email
+      const email = localStorage.getItem("email"); // Fetch the user's email
       if (!email) {
-        setMessage("Please log in to add destinations.");
+        setMessage("User email not found. Please log in.");
         return;
       }
   
-      // Fetch the selected list from the backend
-      const selectedListResponse = await axios.get(`${BACKEND_URL}/api/get-selected-list`, {
+      // Fetch the currently selected list
+      const response = await axios.get(`${BACKEND_URL}/api/get-selected-list`, {
         params: { email },
       });
   
-      const selectedList = selectedListResponse.data.selectedList;
+      const selectedList = response.data.selectedList;
   
-      // Ensure there is a selected list
-      if (!selectedList) {
+      // Check if a list is selected
+      if (!selectedList || !selectedList.listName) {
         setMessage("No list is currently selected. Please select a list first.");
         return;
       }
+
+      console.log("Adding to list:", selectedList.listName, "Destination ID:", destinationId);
+
   
-      // Add the destination to the selected list
-      const response = await axios.post(`${BACKEND_URL}/api/add-to-list`, {
-        listName: selectedList.listName, // Use the selected list's name
-        destinationId,                  // Pass the destination ID to add
+  
+      // Send the request to add the destination to the list
+      const addResponse = await axios.post(`${BACKEND_URL}/api/add-to-list`, {
+        listName: selectedList.listName,
+        destinationId,
+        email, // Include the user's email in the request
       });
   
-      // Log and display success
-      console.log("Add to list response:", response.data);
-      setMessage(response.data.message || `Destination added to "${selectedList.listName}" successfully!`);
-  
-      // Optionally refresh the selected list (if required)
-      fetchSelectedList(); // Fetch updated list
+      console.log("Add to list response:", addResponse.data);
+      setMessage(addResponse.data.message || "Destination added successfully!");
     } catch (err) {
       console.error("Error adding to list:", err.response?.data || err.message);
-      setMessage(err.response?.data?.error || "Failed to add destination to the list.");
+      setMessage(err.response?.data?.error || "Failed to add destination.");
     }
   };
+  
+  
   
   
   

@@ -267,35 +267,40 @@ app.post("/api/createList", async (req, res) => {
 
 app.post("/api/add-to-list", async (req, res) => {
   try {
-    const { listName, destinationId } = req.body;
+    const { listName, destinationId, email } = req.body;
+    console.log("Request to add destination:", req.body);
 
-    // Validate request data
-    if (!listName || !destinationId) {
-      return res.status(400).json({ error: "List name and destination ID are required." });
+
+    console.log("Incoming request:", { listName, destinationId, email }); // Debugging
+
+    // Validate input
+    if (!listName || !destinationId || !email) {
+      return res.status(400).json({ error: "List name, destination ID, and email are required." });
     }
 
-    // Find the list by its name
+    // Query the database
     const updatedList = await db.collection("lists").findOneAndUpdate(
-      { listName },
-      { $addToSet: { destinationIDs: destinationId } }, // Use $addToSet to prevent duplicates
-      { returnDocument: "after" } // MongoDB returns the updated document after the update
+      { listName, email }, // Match listName and email
+      { $addToSet: { destinationIDs: destinationId } }, // Add the destination
+      { returnDocument: "after" } // Return the updated document
     );
 
-    // If the list is not found
     if (!updatedList.value) {
+      console.log("List not found for:", { listName, email }); // Debugging
       return res.status(404).json({ error: "List not found." });
     }
 
-    // Return the updated list and success message
     res.status(200).json({
       message: "Destination added successfully.",
-      updatedList: updatedList.value, // Return the updated list for the frontend if needed
+      updatedList: updatedList.value,
     });
   } catch (err) {
     console.error("Error adding destination:", err);
     res.status(500).json({ error: "Internal server error." });
   }
 });
+
+
 
 
 
