@@ -5,13 +5,14 @@ import SearchDestination from "./SearchDestination";
 const LoggedIn = () => {
   const [lists, setLists] = useState([]);
   const [listName, setListName] = useState("");
-  const [listDescription, setListDescription] = useState(""); // New state for list description
+  const [description, setDescription] = useState(""); // State for description
   const [visibility, setVisibility] = useState("private"); // New state for visibility
   const [message, setMessage] = useState("");
   const [userEmail, setUserEmail] = useState(localStorage.getItem("email") || "");
   const [selectedList, setSelectedList] = useState(null);
   const [selectedListId, setSelectedListId] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem("token"));
+  const [expandedListId, setExpandedListId] = useState(null);
 
   
 
@@ -146,6 +147,7 @@ const LoggedIn = () => {
       await axios.post(`${BACKEND_URL}/api/createList`, {
         email: userEmail,
         listName,
+        description, // Include description in the request
       });
 
       setMessage("List created successfully!");
@@ -164,18 +166,17 @@ const LoggedIn = () => {
       });
   
       setMessage(`List "${list.listName}" deleted successfully.`);
+      setListName("");
+      setDescription(""); // Clear the description field
       fetchLists(); // Refresh the lists after deletion
     } catch (err) {
       console.error("Error deleting list:", err.message);
       setMessage("Error deleting list. Please try again.");
     }
   };
-  
-  
-  
+
 
   return (
-    
     <div
       style={{
         display: "flex",
@@ -265,165 +266,228 @@ const LoggedIn = () => {
 >
   <h2>Your Travel Lists</h2>
 
+  {/* Create List Section */}
   <div style={{ marginTop: "20px" }}>
-          <h3>Create a List</h3>
-          <input
-            type="text"
-            placeholder="Enter list name"
-            value={listName}
-            onChange={(e) => setListName(e.target.value)}
-            style={{
-              width: "100%",
-              padding: "10px",
-              marginBottom: "10px",
-              borderRadius: "5px",
-              border: "1px solid #ddd",
-            }}
-          />
-          <button
-            onClick={handleCreateList}
-            style={{
-              padding: "10px 20px",
-              backgroundColor: "green",
-              color: "white",
-              border: "none",
-              borderRadius: "5px",
-              cursor: "pointer",
-            }}
-          >
-            Save List
-          </button>
-          {message && (
-            <p
-              style={{
-                marginTop: "10px",
-                color: message.includes("successfully") ? "green" : "red",
-              }}
-            >
-              {message}
-            </p>
-          )}
-        </div>
+    <h3>Create a List</h3>
+    <input
+      type="text"
+      placeholder="Enter list name"
+      value={listName}
+      onChange={(e) => setListName(e.target.value)}
+      style={{
+        width: "100%",
+        padding: "10px",
+        marginBottom: "10px",
+        borderRadius: "5px",
+        border: "1px solid #ddd",
+      }}
+    />
+    <textarea
+      placeholder="Enter description (optional)"
+      value={description}
+      onChange={(e) => setDescription(e.target.value)}
+      style={{
+        width: "100%",
+        padding: "10px",
+        marginBottom: "10px",
+        borderRadius: "5px",
+        border: "1px solid #ddd",
+      }}
+    />
+    <button
+      onClick={handleCreateList}
+      style={{
+        padding: "10px 20px",
+        backgroundColor: "green",
+        color: "white",
+        border: "none",
+        borderRadius: "5px",
+        cursor: "pointer",
+      }}
+    >
+      Save List
+    </button>
+    {message && (
+      <p
+        style={{
+          marginTop: "10px",
+          color: message.includes("successfully") ? "green" : "red",
+        }}
+      >
+        {message}
+      </p>
+    )}
+  </div>
 
-
-
+  {/* List Section */}
   <div>
     <h3>Your Lists</h3>
     <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
       {lists.length > 0 ? (
-        lists.map((list) => (
-          <div
-          key={list._id}
-          style={{
-            padding: "15px",
-            border: `2px solid ${list.selected ? "green" : "#ddd"}`,
-            borderRadius: "10px",
-            backgroundColor: list.selected ? "#e6ffe6" : "#fff",
-            boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-            transition: "background-color 0.3s ease, border-color 0.3s ease",
-          }}
-          >
-            <h4 style={{ marginBottom: "10px" }}>{list.listName}</h4>
-            <p style={{ marginBottom: "10px", color: "gray" }}>
+        lists.map((list) => {
+          const isExpanded = expandedListId === list._id; // Check if this list is expanded
+
+          return (
+            <div
+              key={list._id}
+              style={{
+                padding: "15px",
+                border: `2px solid ${list.selected ? "green" : "#ddd"}`,
+                borderRadius: "10px",
+                backgroundColor: list.selected ? "#e6ffe6" : "#fff",
+                boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                transition: "background-color 0.3s ease, border-color 0.3s ease",
+              }}
+            >
+              {/* List Name and Expand/Collapse Button */}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <h4 style={{ marginBottom: "10px" }}>{list.listName}</h4>
+                <button
+                  style={{
+                    padding: "5px 10px",
+                    backgroundColor: isExpanded ? "red" : "blue",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "5px",
+                    cursor: "pointer",
+                  }}
+                  onClick={() =>
+                    setExpandedListId(isExpanded ? null : list._id)
+                  } // Toggle expand/collapse
+                >
+                  {isExpanded ? "Collapse" : "Expand"}
+                </button>
+              </div>
+
+              {/* Expanded List Details */}
+              {isExpanded && (
+                <>
+                  <p style={{ marginBottom: "10px", color: "gray" }}>
                     {list.description || "No description provided."}
-            </p>
-            <p style={{ marginBottom: "10px" }}>
+                  </p>
+                  <p style={{ marginBottom: "10px" }}>
                     Visibility: {list.visibility || "Private"}
-            </p>
+                  </p>
 
-            {list.destinationDetails && list.destinationDetails.length > 0 ? (
-              <ul style={{ paddingLeft: "20px", marginBottom: "10px" }}>
-                {list.destinationDetails.map((destination, i) => (
-                  <li key={i} style={{ marginBottom: "5px" }}>
-                    {destination?.name || "Unknown"}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p style={{ color: "gray", marginBottom: "10px" }}>
-                No destinations found.
-              </p>
-            )}
+                  {list.destinationDetails &&
+                  list.destinationDetails.length > 0 ? (
+                    <ul style={{ paddingLeft: "20px", marginBottom: "10px" }}>
+                      {list.destinationDetails.map((destination, i) => (
+                        <li key={i} style={{ marginBottom: "5px" }}>
+                        <span style={{ fontWeight: "bold" }}>Destination:</span> {destination?.name || "Unknown"}
+                        <br />
+                        <span style={{ fontWeight: "bold" }}>Country:</span> {destination?.country || "Unknown Country"}
+                      </li>
+                      
+                      ))}
+                    </ul>
+                  ) : (
+                    <p style={{ color: "gray", marginBottom: "10px" }}>
+                      No destinations found.
+                    </p>
+                  )}
 
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-            {list.selected ? (
-              <button
-                style={{
-                  padding: "10px 15px",
-                  backgroundColor: "red",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "5px",
-                  cursor: "pointer",
-                  transition: "background-color 0.3s ease",
-                }}
-                onClick={handleDeselectList} // Call the deselect function
-              >
-                Deselect
-              </button>
-            ) : (
-              <button
-                style={{
-                  padding: "10px 15px",
-                  backgroundColor: "blue",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "5px",
-                  cursor: "pointer",
-                  transition: "background-color 0.3s ease",
-                }}
-                onClick={() => handleSelectList(list)} // Call the select function
-              >
-                Select
-              </button>
-            )}
+                  {/* Buttons */}
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    {list.selected ? (
+                      <button
+                        style={{
+                          padding: "10px 15px",
+                          backgroundColor: "red",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "5px",
+                          cursor: "pointer",
+                          transition: "background-color 0.3s ease",
+                        }}
+                        onClick={handleDeselectList} // Call the deselect function
+                      >
+                        Deselect
+                      </button>
+                    ) : (
+                      <button
+                        style={{
+                          padding: "10px 15px",
+                          backgroundColor: "blue",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "5px",
+                          cursor: "pointer",
+                          transition: "background-color 0.3s ease",
+                        }}
+                        onClick={() => handleSelectList(list)} // Call the select function
+                      >
+                        Select
+                      </button>
+                    )}
 
+                    {/* Change Visibility Button */}
+                    <button
+                      style={{
+                        padding: "10px 15px",
+                        backgroundColor:
+                          list.visibility === "public" ? "green" : "gray",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "5px",
+                        cursor: "pointer",
+                      }}
+                      onClick={() =>
+                        handleChangeVisibility(
+                          list,
+                          list.visibility === "public"
+                            ? "private"
+                            : "public"
+                        )
+                      }
+                    >
+                      {list.visibility === "public"
+                        ? "Make Private"
+                        : "Make Public"}
+                    </button>
 
-              {/* Change Visibility Button */}
-              <button
-                style={{
-                  padding: "10px 15px",
-                  backgroundColor: list.visibility === "public" ? "green" : "gray",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "5px",
-                  cursor: "pointer",
-                }}
-                onClick={() =>
-                  handleChangeVisibility(list, list.visibility === "public" ? "private" : "public")
-                }
-              >
-                {list.visibility === "public" ? "Make Private" : "Make Public"}
-              </button>
-
-              <button
-                style={{
-                  padding: "10px 15px",
-                  backgroundColor: "red",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "5px",
-                  cursor: "pointer",
-                  transition: "background-color 0.3s ease",
-                }}
-                onClick={() => handleDeleteList(list)}
-              >
-                Delete List
-              </button>
+                    <button
+                      style={{
+                        padding: "10px 15px",
+                        backgroundColor: "red",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "5px",
+                        cursor: "pointer",
+                        transition: "background-color 0.3s ease",
+                      }}
+                      onClick={() => handleDeleteList(list)}
+                    >
+                      Delete List
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
-          </div>
-        ))
+          );
+        })
       ) : (
         <p>No lists found.</p>
       )}
-    </div>
-  </div>
-</div>
-
-
+          </div>
+        </div>
+      </div>
     </div>
   );
-}
+};
+
+
   
 
 export default LoggedIn;
