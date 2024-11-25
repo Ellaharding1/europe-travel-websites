@@ -98,22 +98,43 @@ const SearchDestination = ({ selectedList, selectedListId, setSelectedList, user
    
   const handleAddToList = async (destinationId) => {
     try {
+      const email = localStorage.getItem("email");
+      if (!selectedListId) {
+        setMessage("Please select a list first.");
+        return;
+      }
+  
+      console.log("Adding to list with ID:", selectedListId, "Email:", email, "Destination:", destinationId);
+  
       const response = await axios.post(`${BACKEND_URL}/api/add-to-list`, {
         listId: selectedListId,
         destinationId,
-        email: localStorage.getItem("email"),
+        email,
       });
   
-      console.log("Add to list response:", response.data);
+      console.log("Add-to-list response:", response.data);
+  
+      // Update the selected list directly in the frontend
+      setLists((prevLists) =>
+        prevLists.map((list) =>
+          list._id === selectedListId
+            ? {
+                ...list,
+                destinationIDs: [...(list.destinationIDs || []), destinationId],
+              }
+            : list
+        )
+      );
+  
       setMessage(response.data.message || "Destination added successfully!");
     } catch (err) {
-      // Suppress "List not found" error if it doesn't impact functionality
-      if (process.env.NODE_ENV === "development") {
-        console.error("Error adding to list:", err.response?.data || err.message);
-      }
-      
+      console.error("Error adding to list:", err.message);
+      setMessage(err.response?.data?.error || "Failed to add destination.");
     }
   };
+  
+  
+  
   
   
   

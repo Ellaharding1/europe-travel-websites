@@ -11,6 +11,8 @@ const LoggedIn = () => {
   const [selectedListId, setSelectedListId] = useState(null); // Track selected list ID
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem("token"));
 
+  
+
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
   // Fetch lists for the logged-in user
@@ -42,9 +44,18 @@ const LoggedIn = () => {
     }
   }, [userEmail]);
 
+
+  // Set up interval to refresh the list every second
   useEffect(() => {
-    fetchLists();
-  }, [fetchLists]);
+    const interval = setInterval(() => {
+        if (true) {
+            fetchLists();
+        }
+    }, 1000);
+
+    return () => clearInterval(interval); // Cleanup interval on component unmount
+}, [isLoggedIn]);
+
 
   const handleSelectList = async (list) => {
     try {
@@ -217,6 +228,49 @@ const LoggedIn = () => {
   }}
 >
   <h2>Your Travel Lists</h2>
+
+  <div style={{ marginTop: "20px" }}>
+          <h3>Create a List</h3>
+          <input
+            type="text"
+            placeholder="Enter list name"
+            value={listName}
+            onChange={(e) => setListName(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "10px",
+              marginBottom: "10px",
+              borderRadius: "5px",
+              border: "1px solid #ddd",
+            }}
+          />
+          <button
+            onClick={handleCreateList}
+            style={{
+              padding: "10px 20px",
+              backgroundColor: "green",
+              color: "white",
+              border: "none",
+              borderRadius: "5px",
+              cursor: "pointer",
+            }}
+          >
+            Save List
+          </button>
+          {message && (
+            <p
+              style={{
+                marginTop: "10px",
+                color: message.includes("successfully") ? "green" : "red",
+              }}
+            >
+              {message}
+            </p>
+          )}
+        </div>
+
+
+
   <div>
     <h3>Your Lists</h3>
     <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>

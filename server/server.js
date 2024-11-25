@@ -1,25 +1,32 @@
-require("dotenv").config(); // Load environment variables
-
-const express = require("express");
-const cors = require("cors");
 const { MongoClient, ObjectId } = require("mongodb");
+const express = require("express");
 const bcrypt = require("bcrypt");
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
+const nodemailer = require("nodemailer");
 const validator = require("validator");
 
+require("dotenv").config(); // Load environment variables
+const FRONTEND_URL = process.env.FRONTEND_URL;
+
+
 const app = express(); // Initialize the app **before** using it
+app.use(express.json()); // JSON parser    
+
+
+const cors = require("cors");
+
 
 // Middleware setup
 console.log("Initializing middleware...");
-app.use(express.json()); // JSON parser
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL, // Ensure this matches your frontend URL
+    origin: process.env.FRONTEND_URL, // Ensure this matches http://localhost:5173
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
-    credentials: true,
+    credentials: true, // Allow cookies if needed
   })
 );
+
 
 const PORT = process.env.PORT || 3000;
 const DATABASE_URI = process.env.DATABASE_URI;
@@ -49,7 +56,7 @@ const client = new MongoClient(DATABASE_URI);
       if (!listId || !destinationId || !email) {
         return res.status(400).json({ error: "List ID, destination ID, and email are required." });
       }
-    
+  
       try {
         const updatedList = await db.collection("lists").findOneAndUpdate(
           { _id: new ObjectId(listId), email: email.trim() },
@@ -70,7 +77,6 @@ const client = new MongoClient(DATABASE_URI);
         res.status(500).json({ error: "Internal server error." });
       }
     });
-    
     
     
     // Register User
@@ -101,8 +107,12 @@ const client = new MongoClient(DATABASE_URI);
 
       await usersCollection.insertOne(newUser);
 
-      const token = jwt.sign({ id: user._id, email: user.email }, user.secretKey, { expiresIn: "1h" });
-
+      const token = jwt.sign(
+        { id: newUser._id, email: newUser.email },
+        newUser.secretKey,
+        { expiresIn: "1h" }
+      );
+      
       const verificationLink = `${FRONTEND_URL}/verify-email?token=${token}`;
       console.log(`Verification link: ${verificationLink}`);
 
