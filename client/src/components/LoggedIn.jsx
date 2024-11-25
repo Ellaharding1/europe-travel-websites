@@ -5,10 +5,12 @@ import SearchDestination from "./SearchDestination";
 const LoggedIn = () => {
   const [lists, setLists] = useState([]);
   const [listName, setListName] = useState("");
+  const [listDescription, setListDescription] = useState(""); // New state for list description
+  const [visibility, setVisibility] = useState("private"); // New state for visibility
   const [message, setMessage] = useState("");
-  const [userEmail, setUserEmail] = useState(localStorage.getItem("email") || ""); // Fetch email once
-  const [selectedList, setSelectedList] = useState(null); // Track selected list name
-  const [selectedListId, setSelectedListId] = useState(null); // Track selected list ID
+  const [userEmail, setUserEmail] = useState(localStorage.getItem("email") || "");
+  const [selectedList, setSelectedList] = useState(null);
+  const [selectedListId, setSelectedListId] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem("token"));
 
   
@@ -58,6 +60,7 @@ const LoggedIn = () => {
 
 
   const handleSelectList = async (list) => {
+    
     try {
       const email = localStorage.getItem("email");
       if (!email) {
@@ -69,6 +72,11 @@ const LoggedIn = () => {
         listName: list.listName,
         email,
       });
+
+      if (!listName.trim()) {
+        setMessage("List name cannot be empty.");
+        return;
+      }
   
       setSelectedList(list.listName);
       setSelectedListId(list._id); // Update selected list ID
@@ -100,9 +108,31 @@ const LoggedIn = () => {
     }
   };
 
+  const handleChangeVisibility = async (list, newVisibility) => {
+    try {
+      await axios.patch(`${BACKEND_URL}/api/change-visibility`, {
+        listId: list._id,
+        visibility: newVisibility,
+      });
+  
+      setMessage(`Visibility of "${list.listName}" changed to ${newVisibility}.`);
+      fetchLists(); // Refresh the lists
+    } catch (err) {
+      console.error("Error changing visibility:", err.message);
+      setMessage("Failed to change visibility. Please try again.");
+    }
+  };
+  
+
   const handleCreateList = async () => {
     if (!listName.trim()) {
       setMessage("List name cannot be empty.");
+      return;
+    }
+
+    // Check if the user already has 20 lists
+    if (lists.length >= 20) {
+      setMessage("You cannot create more than 20 lists.");
       return;
     }
 
@@ -123,18 +153,18 @@ const LoggedIn = () => {
 
   const handleDeleteList = async (list) => {
     try {
-      await axios.post(`${BACKEND_URL}/api/deleteList`, {
-        listName: list.listName,
-        email: userEmail,
+      await axios.delete(`${BACKEND_URL}/api/deleteList`, {
+        data: { listId: list._id }, // Use `data` for DELETE requests
       });
-
+  
       setMessage(`List "${list.listName}" deleted successfully.`);
-      fetchLists();
+      fetchLists(); // Refresh the lists after deletion
     } catch (err) {
       console.error("Error deleting list:", err.message);
       setMessage("Error deleting list. Please try again.");
     }
   };
+  
   
   
 
@@ -277,17 +307,23 @@ const LoggedIn = () => {
       {lists.length > 0 ? (
         lists.map((list) => (
           <div
-            key={list._id}
-            style={{
-              padding: "15px",
-              border: `2px solid ${list.selected ? "green" : "#ddd"}`,
-              borderRadius: "10px",
-              backgroundColor: list.selected ? "#e6ffe6" : "#fff",
-              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-              transition: "background-color 0.3s ease, border-color 0.3s ease",
-            }}
+          key={list._id}
+          style={{
+            padding: "15px",
+            border: `2px solid ${list.selected ? "green" : "#ddd"}`,
+            borderRadius: "10px",
+            backgroundColor: list.selected ? "#e6ffe6" : "#fff",
+            boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+            transition: "background-color 0.3s ease, border-color 0.3s ease",
+          }}
           >
             <h4 style={{ marginBottom: "10px" }}>{list.listName}</h4>
+            <p style={{ marginBottom: "10px", color: "gray" }}>
+                    {list.description || "No description provided."}
+            </p>
+            <p style={{ marginBottom: "10px" }}>
+                    Visibility: {list.visibility || "Private"}
+            </p>
 
             {list.destinationDetails && list.destinationDetails.length > 0 ? (
               <ul style={{ paddingLeft: "20px", marginBottom: "10px" }}>
@@ -304,37 +340,55 @@ const LoggedIn = () => {
             )}
 
             <div style={{ display: "flex", justifyContent: "space-between" }}>
-              {list.selected ? (
-                <button
-                  style={{
-                    padding: "10px 15px",
-                    backgroundColor: "red",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "5px",
-                    cursor: "pointer",
-                    transition: "background-color 0.3s ease",
-                  }}
-                  onClick={handleDeselectList}
-                >
-                  Deselect
-                </button>
-              ) : (
-                <button
-                  style={{
-                    padding: "10px 15px",
-                    backgroundColor: "blue",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "5px",
-                    cursor: "pointer",
-                    transition: "background-color 0.3s ease",
-                  }}
-                  onClick={() => handleSelectList(list)}
-                >
-                  Select
-                </button>
-              )}
+            {list.selected ? (
+              <button
+                style={{
+                  padding: "10px 15px",
+                  backgroundColor: "red",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "5px",
+                  cursor: "pointer",
+                  transition: "background-color 0.3s ease",
+                }}
+                onClick={handleDeselectList} // Call the deselect function
+              >
+                Deselect
+              </button>
+            ) : (
+              <button
+                style={{
+                  padding: "10px 15px",
+                  backgroundColor: "blue",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "5px",
+                  cursor: "pointer",
+                  transition: "background-color 0.3s ease",
+                }}
+                onClick={() => handleSelectList(list)} // Call the select function
+              >
+                Select
+              </button>
+            )}
+
+
+              {/* Change Visibility Button */}
+              <button
+                style={{
+                  padding: "10px 15px",
+                  backgroundColor: list.visibility === "public" ? "green" : "gray",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "5px",
+                  cursor: "pointer",
+                }}
+                onClick={() =>
+                  handleChangeVisibility(list, list.visibility === "public" ? "private" : "public")
+                }
+              >
+                {list.visibility === "public" ? "Make Private" : "Make Public"}
+              </button>
 
               <button
                 style={{

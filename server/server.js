@@ -78,7 +78,6 @@ const client = new MongoClient(DATABASE_URI);
       }
     });
     
-    
     // Register User
   app.post("/register", async (req, res) => {
     const { email, password, nickname } = req.body;
@@ -236,16 +235,26 @@ app.get("/search-destinations", async (req, res) => {
 
 app.post("/api/createList", async (req, res) => {
   try {
-    const { email, listName } = req.body; // Get email and list name from the request body
+    const { email, listName, description = "", visibility = "private" } = req.body;
 
     if (!email || !listName) {
       return res.status(400).json({ error: "Email and list name are required." });
     }
 
+    // Check if the user already has 20 lists
+    const userListsCount = await db.collection("lists").countDocuments({ email });
+    if (userListsCount >= 20) {
+      return res
+        .status(400)
+        .json({ error: "You cannot create more than 20 lists." });
+    }
+
     const newList = {
       listName,
-      destinationIDs: [], // Initially empty
-      email, // Associate the list with the user's email
+      description,
+      visibility,
+      destinationIDs: [],
+      email,
       createdAt: new Date(),
       destinationCount: 0,
     };
@@ -258,6 +267,7 @@ app.post("/api/createList", async (req, res) => {
     res.status(500).json({ error: "Failed to create list: " + err.message });
   }
 });
+
 
 
 
@@ -397,6 +407,55 @@ app.get("/api/getLists", async (req, res) => {
   } catch (err) {
     console.error("Error fetching lists:", err.message);
     res.status(500).json({ error: "Error fetching lists: " + err.message });
+  }
+});
+
+app.patch("/api/change-visibility", async (req, res) => {
+  try {
+    const { listId, visibility } = req.body;
+
+    if (!listId || !visibility) {
+      return res.status(400).json({ error: "List ID and visibility are required." });
+    }
+
+    if (!["public", "private"].includes(visibility)) {
+      return res.status(400).json({ error: "Invalid visibility value. Must be 'public' or 'private'." });
+    }
+
+    const result = await db.collection("lists").updateOne(
+      { _id: new ObjectId(listId) },
+      { $set: { visibility } }
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: "List not found." });
+    }
+
+    res.status(200).json({ message: "Visibility updated successfully." });
+  } catch (err) {
+    console.error("Error changing visibility:", err.message);
+    res.status(500).json({ error: "Failed to change visibility: " + err.message });
+  }
+});
+
+app.delete("/api/deleteList", async (req, res) => {
+  try {
+    const { listId } = req.body; // Expecting `listId` in the request body
+
+    if (!listId) {
+      return res.status(400).json({ error: "List ID is required." });
+    }
+
+    const result = await db.collection("lists").deleteOne({ _id: new ObjectId(listId) });
+
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: "List not found." });
+    }
+
+    res.status(200).json({ message: "List deleted successfully." });
+  } catch (err) {
+    console.error("Error deleting list:", err.message);
+    res.status(500).json({ error: "Failed to delete list: " + err.message });
   }
 });
 
