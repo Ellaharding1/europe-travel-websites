@@ -4,10 +4,12 @@ import SearchDestination from "./SearchDestination";
 
 const LoggedIn = () => {
   const [editName, setEditName] = useState("");
-  const [editDescription, setEditDescription] = useState("");
   const [editVisibility, setEditVisibility] = useState("private");
   const [expandedListId, setExpandedListId] = useState(null);
-  const [editingList, setEditingList] = useState(null);
+  const [editingList, setEditingList] = useState(null); // Track the ID of the list being edited
+  const [editDescription, setEditDescription] = useState(""); // Track the description being edited
+  const [editListId, setEditListId] = useState(null);
+
 
 
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem("token"));
@@ -32,7 +34,6 @@ const LoggedIn = () => {
 
  
   
-
   // Fetch lists for the logged-in user
   const fetchLists = useCallback(async () => {
     try {
@@ -139,22 +140,23 @@ const LoggedIn = () => {
     }
   };
 
-// Add this handler for saving edits
-const handleSaveEdit = async () => {
+const handleSaveEdits = async (list) => {
   try {
     await axios.patch(`${BACKEND_URL}/api/editList`, {
-      listId: editingList,
-      listName: editName,
+      email: userEmail,
+      listId: list._id,
       description: editDescription,
-      visibility: editVisibility,
+      // Send other fields if needed
+      listName: list.listName,
+      visibility: list.visibility
     });
 
-    setEditingList(null); // Clear the editing state
-    setMessage("List updated successfully.");
-    fetchLists(); // Refresh the lists after the update
+    setMessage("List updated successfully!");
+    setIsEditing(false);
+    fetchLists(); // Refresh the lists to show updated data
   } catch (err) {
-    console.error("Error saving list edits:", err.message);
-    setMessage("Failed to save the list. Please try again.");
+    console.error("Error saving edits:", err.message);
+    setMessage("Failed to update list. Please try again.");
   }
 };
 
@@ -224,6 +226,38 @@ const startEditingList = (list) => {
     }
   };
 
+  const handleDescriptionEdit = async (listId, newDescription) => {
+    try {
+      const response = await axios.patch(`${BACKEND_URL}/api/editDescription`, {
+        listId,
+        description: newDescription,
+      });
+      console.log(response.data.message); // Success message
+      fetchLists(); // Refresh the lists to reflect the updated description
+    } catch (err) {
+      console.error(
+        "Error updating description:",
+        err.response?.data?.error || err.message
+      );
+      setMessage("Error updating description.");
+    }
+  };
+
+  const handleRemoveDestination = async (listId, destinationId) => {
+    try {
+      const response = await axios.patch(`${BACKEND_URL}/api/remove-destination`, {
+        listId,
+        destinationId,
+      });
+  
+      console.log(response.data.message); // Log the success message
+      fetchLists(); // Refresh the lists to show updated data
+    } catch (err) {
+      console.error("Error removing destination:", err.message);
+      setMessage("Failed to remove destination. Please try again.");
+    }
+  };
+  
 
   return (
     <div
@@ -347,7 +381,7 @@ const startEditingList = (list) => {
       onClick={handleCreateList}
       style={{
         padding: "10px 20px",
-        backgroundColor: "green",
+        backgroundColor: "gray",
         color: "white",
         border: "none",
         borderRadius: "5px",
@@ -360,7 +394,7 @@ const startEditingList = (list) => {
       <p
         style={{
           marginTop: "10px",
-          color: message.includes("successfully") ? "green" : "red",
+          color: message.includes("successfully") ? "darkgreen" : "red",
         }}
       >
         {message}
@@ -369,15 +403,12 @@ const startEditingList = (list) => {
   </div>
 
   {/* List Section */}
-{/* List Section */}
 <div>
   <h3>Your Lists</h3>
   <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
     {lists.length > 0 ? (
       lists.map((list) => {
         const isExpanded = expandedListId === list._id; // Check if this list is expanded
-
-
           return (
             <div
               key={list._id}
@@ -417,7 +448,7 @@ const startEditingList = (list) => {
               <button
                 style={{
                   padding: "5px 10px",
-                  backgroundColor: isExpanded ? "red" : "blue",
+                  backgroundColor: isExpanded ? "gray" : "black",
                   color: "white",
                   border: "none",
                   borderRadius: "5px",
@@ -434,63 +465,114 @@ const startEditingList = (list) => {
             {/* Expanded List Details */}
             {isExpanded && (
               <>
-                {isEditing && editListId === list._id ? (
-                  <>
-                    <textarea
-                      placeholder="Edit description"
-                      value={editDescription}
-                      onChange={(e) => setEditDescription(e.target.value)}
-                      style={{
-                        width: "100%",
-                        padding: "10px",
-                        marginBottom: "10px",
-                        borderRadius: "5px",
-                        border: "1px solid #ddd",
-                      }}
-                    />
-                    <select
-                      value={editVisibility}
-                      onChange={(e) => setEditVisibility(e.target.value)}
-                      style={{
-                        padding: "5px",
-                        marginBottom: "10px",
-                        borderRadius: "5px",
-                        border: "1px solid #ddd",
-                      }}
-                    >
-                      <option value="private">Private</option>
-                      <option value="public">Public</option>
-                    </select>
-                  </>
-                ) : (
-              <>
-                    <p style={{ marginBottom: "10px", color: "gray" }}>
+
+
+
+              {editListId === list._id ? (
+                <>
+                  <textarea
+                    placeholder="Edit description"
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      marginBottom: "10px",
+                      borderRadius: "5px",
+                      border: "1px solid #ddd",
+                    }}
+                  />
+                  <button
+                    onClick={async () => {
+                      await handleDescriptionEdit(list._id, editDescription);
+                      setEditListId(null); // End editing after saving
+                    }}
+                    style={{
+                      padding: "5px 10px",
+                      backgroundColor: "green",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "5px",
+                      cursor: "pointer",
+                      marginTop: "10px",
+                    }}
+                  >
+                    Save
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div style={{ display: "flex", alignItems: "center", marginBottom: "10px" }}>
+                    <p style={{ marginRight: "10px", color: "gray" }}>
+                      {"List Description:   "}
                       {list.description || "No description provided."}
                     </p>
-                    <p style={{ marginBottom: "10px" }}>
-                      Visibility: {list.visibility || "Private"}
-                    </p>
-                  </>
-                )}
+                    <button
+                      onClick={() => {
+                        setEditListId(list._id); // Start editing this list
+                        setEditDescription(list.description || ""); // Initialize edit with current description
+                      }}
+                      style={{
+                        padding: "2px 5px",
+                        backgroundColor: "blue",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "3px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Edit
+                    </button>
+                  </div>
+                </>
+              )}
 
-    {list.destinationDetails &&
-                    list.destinationDetails.length > 0 ? (
-                      <ul style={{ paddingLeft: "20px", marginBottom: "10px" }}>
-                        {list.destinationDetails.map((destination, i) => (
-                          <li key={i} style={{ marginBottom: "5px" }}>
-                            <span style={{ fontWeight: "bold" }}>Destination:</span>{" "}
-                            {destination?.name || "Unknown"}
-                            <br />
-                            <span style={{ fontWeight: "bold" }}>Country:</span>{" "}
-                            {destination?.country || "Unknown Country"}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p style={{ color: "gray", marginBottom: "10px" }}>
-                        No destinations found.
-                      </p>
-                    )}
+
+
+                      {list.destinationDetails && list.destinationDetails.length > 0 ? (
+                        <ul style={{ paddingLeft: "20px", marginBottom: "10px" }}>
+                          {list.destinationDetails.map((destination, i) => (
+                            <li
+                              key={i}
+                              style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                marginBottom: "5px",
+                              }}
+                            >
+                              <span>
+                                <strong>Destination:</strong> {destination?.name || "Unknown"}
+                                <br />
+                                <strong>Country:</strong> {destination?.country || "Unknown Country"}
+                              </span>
+                              <button
+                                onClick={() => handleRemoveDestination(list._id, destination.id)} // Call the remove function
+                                style={{
+                                  marginLeft: "10px",
+                                  padding: "5px", // Reduce padding to make the button smaller
+                                  backgroundColor: "gray", // Set background color to dark gray
+                                  color: "white", // Set the "X" color to white for contrast
+                                  border: "none", // Remove any border
+                                  borderRadius: "50%", // Make it circular
+                                  fontSize: "9px", // Adjust the font size of the "X"
+                                  width: "15px", // Set button width
+                                  height: "15px", // Set button height
+                                  display: "flex", // Center the "X" inside the circle
+                                  alignItems: "center", // Vertical centering
+                                  justifyContent: "center", // Horizontal centering
+                                  cursor: "pointer",
+                                }}
+                              >
+                                X
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p style={{ color: "gray", marginBottom: "10px" }}>No destinations found.</p>
+                      )}
+
 
                     {/* Buttons */}
                     <div
@@ -502,11 +584,12 @@ const startEditingList = (list) => {
                       {list.selected ? (
                         <button
                           style={{
-                            padding: "10px 15px",
-                            backgroundColor: "red",
+                            padding: "1px 5px", // Smaller padding for smaller button size
+                            backgroundColor: "black",
                             color: "white",
                             border: "none",
                             borderRadius: "5px",
+                            fontSize: "12px", // Smaller font size
                             cursor: "pointer",
                             transition: "background-color 0.3s ease",
                           }}
@@ -517,11 +600,12 @@ const startEditingList = (list) => {
                       ) : (
                         <button
                           style={{
-                            padding: "10px 15px",
+                            padding: "5px 8px", // Smaller padding
                             backgroundColor: "blue",
                             color: "white",
                             border: "none",
                             borderRadius: "5px",
+                            fontSize: "12px", // Smaller font size
                             cursor: "pointer",
                             transition: "background-color 0.3s ease",
                           }}
@@ -534,12 +618,12 @@ const startEditingList = (list) => {
                       {/* Change Visibility Button */}
                       <button
                         style={{
-                          padding: "10px 15px",
-                          backgroundColor:
-                            list.visibility === "public" ? "green" : "gray",
+                          padding: "5px 8px", // Smaller padding
+                          backgroundColor: list.visibility === "public" ? "green" : "gray",
                           color: "white",
                           border: "none",
                           borderRadius: "5px",
+                          fontSize: "12px", // Smaller font size
                           cursor: "pointer",
                         }}
                         onClick={() =>
@@ -555,37 +639,6 @@ const startEditingList = (list) => {
                           ? "Make Private"
                           : "Make Public"}
                       </button>
-
-                      {isEditing && editListId === list._id ? (
-                        <button
-                          style={{
-                            padding: "10px 15px",
-                            backgroundColor: "green",
-                            color: "white",
-                            border: "none",
-                            borderRadius: "5px",
-                            cursor: "pointer",
-                          }}
-                          onClick={() => handleSaveEdits(list)} // Save changes
-                        >
-                          Save
-                        </button>
-                      ) : (
-                        <button
-                          style={{
-                            padding: "10px 15px",
-                            backgroundColor: "orange",
-                            color: "white",
-                            border: "none",
-                            borderRadius: "5px",
-                            cursor: "pointer",
-                          }}
-                          onClick={() => startEditingList(list)} // Call the startEditingList function
-                        >
-                          Edit
-                        </button>
-
-                      )}
 
                       {editingList === list._id && (
                         <div style={{ display: "flex", gap: "10px", marginTop: "10px" }}>
@@ -621,11 +674,12 @@ const startEditingList = (list) => {
 
                       <button
                         style={{
-                          padding: "10px 15px",
-                          backgroundColor: "red",
+                          padding: "5px 8px", // Smaller padding
+                          backgroundColor: "black",
                           color: "white",
                           border: "none",
                           borderRadius: "5px",
+                          fontSize: "12px", // Smaller font size
                           cursor: "pointer",
                           transition: "background-color 0.3s ease",
                         }}
@@ -635,15 +689,15 @@ const startEditingList = (list) => {
                       </button>
                     </div>
                   </>
-                )}
+            )}
               </div>
-            );
-          })
-        ) : (
+        );
+      })
+    ) : (
           <p>No lists found.</p>
         )}
-      </div>
-    </div>
+          </div>
+        </div>
       </div>
     </div>
   );

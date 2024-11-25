@@ -460,6 +460,8 @@ app.delete("/api/deleteList", async (req, res) => {
     res.status(500).json({ error: "Failed to delete list: " + err.message });
   }
 });
+
+
 app.patch("/api/editList", async (req, res) => {
   try {
     const { listId, listName, description, visibility } = req.body;
@@ -490,6 +492,66 @@ app.patch("/api/editList", async (req, res) => {
     res.status(500).json({ error: "Failed to update list: " + err.message });
   }
 });
+
+// Update List Description
+app.patch("/api/editDescription", async (req, res) => {
+  try {
+    const { listId, description } = req.body;
+
+    if (!listId || typeof description !== "string") {
+      return res
+        .status(400)
+        .json({ error: "List ID and description are required." });
+    }
+
+    const result = await db.collection("lists").updateOne(
+      { _id: new ObjectId(listId) }, // Find the list by ID
+      {
+        $set: {
+          description, // Update the description
+          lastEdited: new Date(), // Record the last edited time
+        },
+      }
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: "List not found." });
+    }
+
+    res.status(200).json({ message: "Description updated successfully." });
+  } catch (err) {
+    console.error("Error updating description:", err.message);
+    res.status(500).json({ error: "Internal server error." });
+  }
+});
+
+app.patch("/api/remove-destination", async (req, res) => {
+  try {
+    const { listId, destinationId } = req.body;
+
+    if (!listId || !destinationId) {
+      return res.status(400).json({ error: "List ID and Destination ID are required." });
+    }
+
+    const result = await db.collection("lists").updateOne(
+      { _id: new ObjectId(listId) }, // Match the list by its ID
+      { $pull: { destinationIDs: destinationId } } // Remove the destination from the list
+    );
+
+    if (result.modifiedCount === 0) {
+      return res.status(404).json({ error: "List or Destination not found." });
+    }
+
+    res.status(200).json({ message: "Destination removed successfully!" });
+  } catch (err) {
+    console.error("Error removing destination:", err.message);
+    res.status(500).json({ error: "Failed to remove destination: " + err.message });
+  }
+});
+
+
+
+
 
 
 
