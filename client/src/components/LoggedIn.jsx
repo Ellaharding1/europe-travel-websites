@@ -3,20 +3,35 @@ import axios from "axios";
 import SearchDestination from "./SearchDestination";
 
 const LoggedIn = () => {
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editVisibility, setEditVisibility] = useState("private");
+  const [expandedListId, setExpandedListId] = useState(null);
+  const [editingList, setEditingList] = useState(null);
+
+
+  const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem("token"));
+  const [isEditing, setIsEditing] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+
+
+  const [lastEditedTime, setLastEditedTime] = useState({});
   const [lists, setLists] = useState([]);
   const [listName, setListName] = useState("");
+
   const [description, setDescription] = useState(""); // State for description
-  const [visibility, setVisibility] = useState("private"); // New state for visibility
+
   const [message, setMessage] = useState("");
+
   const [userEmail, setUserEmail] = useState(localStorage.getItem("email") || "");
+
   const [selectedList, setSelectedList] = useState(null);
   const [selectedListId, setSelectedListId] = useState(null);
-  const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem("token"));
-  const [expandedListId, setExpandedListId] = useState(null);
-
-  
 
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+
+ 
+  
 
   // Fetch lists for the logged-in user
   const fetchLists = useCallback(async () => {
@@ -123,6 +138,40 @@ const LoggedIn = () => {
       setMessage("Failed to change visibility. Please try again.");
     }
   };
+
+// Add this handler for saving edits
+const handleSaveEdit = async () => {
+  try {
+    await axios.patch(`${BACKEND_URL}/api/editList`, {
+      listId: editingList,
+      listName: editName,
+      description: editDescription,
+      visibility: editVisibility,
+    });
+
+    setEditingList(null); // Clear the editing state
+    setMessage("List updated successfully.");
+    fetchLists(); // Refresh the lists after the update
+  } catch (err) {
+    console.error("Error saving list edits:", err.message);
+    setMessage("Failed to save the list. Please try again.");
+  }
+};
+
+const handleCancelEdit = () => {
+  setEditingList(null); // Clear the editing state
+  setEditName(""); // Reset the input fields
+  setEditDescription("");
+  setEditVisibility("private");
+};
+
+const startEditingList = (list) => {
+  setEditingList(list._id); // Set the ID of the list being edited
+  setEditName(list.listName); // Initialize the name in the form
+  setEditDescription(list.description || ""); // Initialize the description
+  setEditVisibility(list.visibility || "private"); // Initialize visibility
+};
+
   
 
   const handleCreateList = async () => {
@@ -320,12 +369,14 @@ const LoggedIn = () => {
   </div>
 
   {/* List Section */}
-  <div>
-    <h3>Your Lists</h3>
-    <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
-      {lists.length > 0 ? (
-        lists.map((list) => {
-          const isExpanded = expandedListId === list._id; // Check if this list is expanded
+{/* List Section */}
+<div>
+  <h3>Your Lists</h3>
+  <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
+    {lists.length > 0 ? (
+      lists.map((list) => {
+        const isExpanded = expandedListId === list._id; // Check if this list is expanded
+
 
           return (
             <div
@@ -347,60 +398,227 @@ const LoggedIn = () => {
                   alignItems: "center",
                 }}
               >
-                <h4 style={{ marginBottom: "10px" }}>{list.listName}</h4>
-                <button
-                  style={{
-                    padding: "5px 10px",
-                    backgroundColor: isExpanded ? "red" : "blue",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "5px",
-                    cursor: "pointer",
-                  }}
-                  onClick={() =>
-                    setExpandedListId(isExpanded ? null : list._id)
-                  } // Toggle expand/collapse
-                >
-                  {isExpanded ? "Collapse" : "Expand"}
-                </button>
-              </div>
-
-              {/* Expanded List Details */}
-              {isExpanded && (
-                <>
-                  <p style={{ marginBottom: "10px", color: "gray" }}>
-                    {list.description || "No description provided."}
-                  </p>
-                  <p style={{ marginBottom: "10px" }}>
-                    Visibility: {list.visibility || "Private"}
-                  </p>
-
-                  {list.destinationDetails &&
-                  list.destinationDetails.length > 0 ? (
-                    <ul style={{ paddingLeft: "20px", marginBottom: "10px" }}>
-                      {list.destinationDetails.map((destination, i) => (
-                        <li key={i} style={{ marginBottom: "5px" }}>
-                        <span style={{ fontWeight: "bold" }}>Destination:</span> {destination?.name || "Unknown"}
-                        <br />
-                        <span style={{ fontWeight: "bold" }}>Country:</span> {destination?.country || "Unknown Country"}
-                      </li>
-                      
-                      ))}
-                    </ul>
-                  ) : (
-                    <p style={{ color: "gray", marginBottom: "10px" }}>
-                      No destinations found.
-                    </p>
-                  )}
-
-                  {/* Buttons */}
-                  <div
+                <h4 style={{ marginBottom: "10px" }}>
+                {isEditing && editListId === list._id ? (
+                  <input
+                    type="text"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
                     style={{
-                      display: "flex",
-                      justifyContent: "space-between",
+                      padding: "5px",
+                      border: "1px solid #ddd",
+                      borderRadius: "5px",
                     }}
-                  >
-                    {list.selected ? (
+                  />
+                ) : (
+                  list.listName
+                )}
+              </h4>
+              <button
+                style={{
+                  padding: "5px 10px",
+                  backgroundColor: isExpanded ? "red" : "blue",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "5px",
+                  cursor: "pointer",
+                }}
+                onClick={() =>
+                  setExpandedListId(isExpanded ? null : list._id)
+                } // Toggle expand/collapse
+              >
+                {isExpanded ? "Collapse" : "Expand"}
+              </button>
+            </div>
+
+            {/* Expanded List Details */}
+            {isExpanded && (
+              <>
+                {isEditing && editListId === list._id ? (
+                  <>
+                    <textarea
+                      placeholder="Edit description"
+                      value={editDescription}
+                      onChange={(e) => setEditDescription(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "10px",
+                        marginBottom: "10px",
+                        borderRadius: "5px",
+                        border: "1px solid #ddd",
+                      }}
+                    />
+                    <select
+                      value={editVisibility}
+                      onChange={(e) => setEditVisibility(e.target.value)}
+                      style={{
+                        padding: "5px",
+                        marginBottom: "10px",
+                        borderRadius: "5px",
+                        border: "1px solid #ddd",
+                      }}
+                    >
+                      <option value="private">Private</option>
+                      <option value="public">Public</option>
+                    </select>
+                  </>
+                ) : (
+              <>
+                    <p style={{ marginBottom: "10px", color: "gray" }}>
+                      {list.description || "No description provided."}
+                    </p>
+                    <p style={{ marginBottom: "10px" }}>
+                      Visibility: {list.visibility || "Private"}
+                    </p>
+                  </>
+                )}
+
+    {list.destinationDetails &&
+                    list.destinationDetails.length > 0 ? (
+                      <ul style={{ paddingLeft: "20px", marginBottom: "10px" }}>
+                        {list.destinationDetails.map((destination, i) => (
+                          <li key={i} style={{ marginBottom: "5px" }}>
+                            <span style={{ fontWeight: "bold" }}>Destination:</span>{" "}
+                            {destination?.name || "Unknown"}
+                            <br />
+                            <span style={{ fontWeight: "bold" }}>Country:</span>{" "}
+                            {destination?.country || "Unknown Country"}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p style={{ color: "gray", marginBottom: "10px" }}>
+                        No destinations found.
+                      </p>
+                    )}
+
+                    {/* Buttons */}
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                      }}
+                    >
+                      {list.selected ? (
+                        <button
+                          style={{
+                            padding: "10px 15px",
+                            backgroundColor: "red",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "5px",
+                            cursor: "pointer",
+                            transition: "background-color 0.3s ease",
+                          }}
+                          onClick={handleDeselectList} // Call the deselect function
+                        >
+                          Deselect
+                        </button>
+                      ) : (
+                        <button
+                          style={{
+                            padding: "10px 15px",
+                            backgroundColor: "blue",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "5px",
+                            cursor: "pointer",
+                            transition: "background-color 0.3s ease",
+                          }}
+                          onClick={() => handleSelectList(list)} // Call the select function
+                        >
+                          Select
+                        </button>
+                      )}
+
+                      {/* Change Visibility Button */}
+                      <button
+                        style={{
+                          padding: "10px 15px",
+                          backgroundColor:
+                            list.visibility === "public" ? "green" : "gray",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "5px",
+                          cursor: "pointer",
+                        }}
+                        onClick={() =>
+                          handleChangeVisibility(
+                            list,
+                            list.visibility === "public"
+                              ? "private"
+                              : "public"
+                          )
+                        }
+                      >
+                        {list.visibility === "public"
+                          ? "Make Private"
+                          : "Make Public"}
+                      </button>
+
+                      {isEditing && editListId === list._id ? (
+                        <button
+                          style={{
+                            padding: "10px 15px",
+                            backgroundColor: "green",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "5px",
+                            cursor: "pointer",
+                          }}
+                          onClick={() => handleSaveEdits(list)} // Save changes
+                        >
+                          Save
+                        </button>
+                      ) : (
+                        <button
+                          style={{
+                            padding: "10px 15px",
+                            backgroundColor: "orange",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "5px",
+                            cursor: "pointer",
+                          }}
+                          onClick={() => startEditingList(list)} // Call the startEditingList function
+                        >
+                          Edit
+                        </button>
+
+                      )}
+
+                      {editingList === list._id && (
+                        <div style={{ display: "flex", gap: "10px", marginTop: "10px" }}>
+                          <button
+                            style={{
+                              padding: "10px 15px",
+                              backgroundColor: "green",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "5px",
+                              cursor: "pointer",
+                            }}
+                            onClick={handleSaveEdit} // Save the changes
+                          >
+                            Save
+                          </button>
+                          <button
+                            style={{
+                              padding: "10px 15px",
+                              backgroundColor: "gray",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "5px",
+                              cursor: "pointer",
+                            }}
+                            onClick={handleCancelEdit} // Cancel the edit
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      )}
+
+
                       <button
                         style={{
                           padding: "10px 15px",
@@ -411,83 +629,25 @@ const LoggedIn = () => {
                           cursor: "pointer",
                           transition: "background-color 0.3s ease",
                         }}
-                        onClick={handleDeselectList} // Call the deselect function
+                        onClick={() => handleDeleteList(list)}
                       >
-                        Deselect
+                        Delete List
                       </button>
-                    ) : (
-                      <button
-                        style={{
-                          padding: "10px 15px",
-                          backgroundColor: "blue",
-                          color: "white",
-                          border: "none",
-                          borderRadius: "5px",
-                          cursor: "pointer",
-                          transition: "background-color 0.3s ease",
-                        }}
-                        onClick={() => handleSelectList(list)} // Call the select function
-                      >
-                        Select
-                      </button>
-                    )}
-
-                    {/* Change Visibility Button */}
-                    <button
-                      style={{
-                        padding: "10px 15px",
-                        backgroundColor:
-                          list.visibility === "public" ? "green" : "gray",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "5px",
-                        cursor: "pointer",
-                      }}
-                      onClick={() =>
-                        handleChangeVisibility(
-                          list,
-                          list.visibility === "public"
-                            ? "private"
-                            : "public"
-                        )
-                      }
-                    >
-                      {list.visibility === "public"
-                        ? "Make Private"
-                        : "Make Public"}
-                    </button>
-
-                    <button
-                      style={{
-                        padding: "10px 15px",
-                        backgroundColor: "red",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "5px",
-                        cursor: "pointer",
-                        transition: "background-color 0.3s ease",
-                      }}
-                      onClick={() => handleDeleteList(list)}
-                    >
-                      Delete List
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          );
-        })
-      ) : (
-        <p>No lists found.</p>
-      )}
-          </div>
-        </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })
+        ) : (
+          <p>No lists found.</p>
+        )}
+      </div>
+    </div>
       </div>
     </div>
   );
 };
-
-
   
 
 export default LoggedIn;

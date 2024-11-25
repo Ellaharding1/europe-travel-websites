@@ -460,6 +460,38 @@ app.delete("/api/deleteList", async (req, res) => {
     res.status(500).json({ error: "Failed to delete list: " + err.message });
   }
 });
+app.patch("/api/editList", async (req, res) => {
+  try {
+    const { listId, listName, description, visibility } = req.body;
+
+    if (!listId || !listName) {
+      return res.status(400).json({ error: "List ID and name are required." });
+    }
+
+    const result = await db.collection("lists").updateOne(
+      { _id: new ObjectId(listId) },
+      {
+        $set: {
+          listName,
+          description,
+          visibility,
+          lastEditedAt: new Date(), // Record the last edited time
+        },
+      }
+    );
+
+    if (result.modifiedCount === 0) {
+      return res.status(404).json({ error: "List not found or no changes made." });
+    }
+
+    res.status(200).json({ message: "List updated successfully." });
+  } catch (err) {
+    console.error("Error updating list:", err.message);
+    res.status(500).json({ error: "Failed to update list: " + err.message });
+  }
+});
+
+
 
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
