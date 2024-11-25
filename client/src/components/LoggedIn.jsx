@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
-import SearchDestination from "./SearchDestination"; // Ensure this is imported
+import SearchDestination from "./SearchDestination";
 
 const LoggedIn = () => {
   const [lists, setLists] = useState([]);
@@ -8,45 +8,75 @@ const LoggedIn = () => {
   const [listName, setListName] = useState("");
   const [message, setMessage] = useState("");
   const [userEmail, setUserEmail] = useState("");
+  const [selectedList, setSelectedList] = useState(null); // Track selected list
 
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
-  const isLoggedIn = !!localStorage.getItem("token");
+  const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem("token"));
 
   useEffect(() => {
-    const email = localStorage.getItem("email"); // Retrieve email from localStorage
-    if (email) {
-      setUserEmail(email); // Set state with the email
-    }
+    const token = localStorage.getItem("token");
+    setIsLoggedIn(!!token);
+  }, []);
+  
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    setIsLoggedIn(!!token); // Dynamically update the state
   }, []);
 
-  // Fetch user lists
-  const fetchLists = async () => {
+  // Fetch lists for the logged-in user
+  const fetchLists = useCallback(async () => {
     try {
-      const email = localStorage.getItem("email"); // Retrieve email from localStorage
+      const email = localStorage.getItem("email");
       if (!email) {
         console.error("Email not found in localStorage");
         return;
       }
   
       const response = await axios.get(`${BACKEND_URL}/api/getLists`, {
-        params: { email }, // Pass email as a query parameter
+        params: { email },
       });
   
-      setLists(response.data.lists || []); // Update state with the fetched lists
+      console.log("Fetched lists:", response.data.lists); // Debug fetched lists
+      setLists(response.data.lists || []); // Update state with new lists
     } catch (err) {
-      console.error("Error fetching lists:", err.response?.data || err.message);
-      setMessage("Error fetching lists. Please try again.");
+      console.error("Error fetching lists:", err.message);
+    }
+  }, []);
+  
+
+  
+  useEffect(() => {
+    fetchLists();
+  }, [fetchLists]);
+  
+
+  const handleAddToList = async (destinationId) => {
+    if (!selectedList) {
+      setMessage("Please select a list first.");
+      return;
+    }
+  
+    try {
+      const response = await axios.post(`${BACKEND_URL}/api/add-to-list`, {
+        listName: selectedList,
+        destinationId,
+      });
+  
+      console.log("Add to list response:", response.data);
+  
+      // Fetch updated lists from the server
+      fetchLists();
+  
+      setMessage(response.data.message || "Destination added successfully!");
+    } catch (err) {
+      console.error("Error adding to list:", err.message);
+      setMessage(err.response?.data?.error || "Failed to add destination.");
     }
   };
   
-  
-  
-  
-  
-  
 
-  // Create a new list
   const handleCreateList = async () => {
     if (!listName.trim()) {
       setMessage("List name cannot be empty.");
@@ -54,61 +84,96 @@ const LoggedIn = () => {
     }
 
     try {
-      const response = await axios.post(
-        `${BACKEND_URL}/api/createLists`,
-        {
-          listName,
-          destinationIDs: [],
-          userName: userEmail, // Use the logged-in user's email
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`, // Include token for authentication
-          },
-        }
-      );
+      await axios.post(`${BACKEND_URL}/api/createList`, {
+        email: userEmail,
+        listName,
+      });
 
-      setMessage("List created successfully.");
-      setListName(""); // Clear the input field
-      fetchLists(); // Refresh the lists
+      setMessage("List created successfully!");
+      setListName("");
+      fetchLists();
     } catch (err) {
       console.error("Error creating list:", err.message);
       setMessage("Error creating list. Please try again.");
     }
   };
 
-  // Add destination to a list
-  const addToList = async (destination) => {
-    if (!currentListName) {
-      setMessage("Please select or create a list first.");
-      return;
-    }
-
+  // **Delete a List**
+  const handleDeleteList = async (listName) => {
     try {
-      const response = await axios.post(
-        `${BACKEND_URL}/add-to-list`,
-        { listName: currentListName, destination },
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        }
-      );
-      setMessage(response.data.message || "Added to list successfully.");
+      const response = await axios.post(`${BACKEND_URL}/api/deleteList`, {
+        listName,
+        email: userEmail,
+      });
+
+      setMessage(response.data.message || "List deleted successfully.");
       fetchLists();
     } catch (err) {
-      console.error("Error adding to list:", err.message);
-      setMessage("Error adding to list. Please try again.");
+      console.error("Error deleting list:", err.message);
+      setMessage("Error deleting list. Please try again.");
     }
   };
 
-  useEffect(() => {
-    if (isLoggedIn) {
-      fetchLists();
+  const addToList = async (destination) => {
+    if (!selectedList) {
+      setMessage("Please select a list first.");
+      return;
     }
-  }, [isLoggedIn]);
+  
+    try {
+      const response = await axios.post(`${BACKEND_URL}/api/add-to-list`, {
+        listName: selectedList,
+        destinationId: destination.id, // Use destination object directly
+      });
+  
+      setMessage(response.data.message || "Destination added successfully.");
+      fetchLists(); // Refresh the lists to reflect changes
+    } catch (err) {
+      console.error("Error adding to list:", err.message);
+      setMessage(err.response?.data?.error || "Failed to add destination.");
+    }
+  };
+  
+  
+
+  const handleSelectList = async (listName) => {
+    try {
+      const email = localStorage.getItem("email");
+      await axios.patch(`${BACKEND_URL}/api/select-list`, { listName, email });
+
+      setSelectedList(listName);
+      fetchLists(); // Refresh lists
+    } catch (err) {
+      console.error("Error selecting list:", err.message);
+    }
+  };
+  const handleDeselectList = async () => {
+    try {
+      const email = localStorage.getItem("email");
+  
+      if (!email) {
+        setMessage("User email not found.");
+        return;
+      }
+  
+      const response = await axios.patch(`${BACKEND_URL}/api/deselect-list`, { email });
+  
+      setSelectedList(null); // Clear the local state
+      setMessage(response.data.message || "List deselected successfully.");
+      fetchLists(); // Refresh lists
+    } catch (err) {
+      console.error("Error deselecting list:", err.response?.data?.error || err.message);
+      setMessage(err.response?.data?.error || "Failed to deselect the list.");
+    }
+  };
+  
+  
+  
+  
+  
 
   return (
+    
     <div
       style={{
         display: "flex",
@@ -127,10 +192,22 @@ const LoggedIn = () => {
           padding: "20px",
         }}
       >
-        <h2>Welcome{userEmail ? `, ${userEmail}` : "!"}</h2>
+        <h2>Welcome to your Dashboard!</h2>
   
+        {/* Search Destination Component */}
         <SearchDestination
-          addToList={addToList}
+        selectedList={selectedList}
+        setSelectedList={setSelectedList}
+        fetchLists={fetchLists} // Pass the fetchLists function as a prop
+        handleAddToList={handleAddToList} // Pass handleAddToList
+        handleCreateList={handleCreateList} // Pass handleCreateList
+          addToList={(destination) => {
+            if (!currentListName) {
+              setMessage("Please select a list to add destinations.");
+              return;
+            }
+            addToList(destination);
+          }}
           isLoggedIn={isLoggedIn}
           customRenderDestination={(destination) => (
             <div
@@ -153,15 +230,20 @@ const LoggedIn = () => {
                 <button
                   style={{
                     padding: "5px 10px",
-                    backgroundColor: "blue",
+                    backgroundColor: currentListName ? "blue" : "gray",
                     color: "white",
                     border: "none",
                     borderRadius: "5px",
-                    cursor: "pointer",
+                    cursor: currentListName ? "pointer" : "not-allowed",
                   }}
-                  onClick={() => handleAddToList(destination)}
+                  onClick={() => {
+                    if (currentListName) {
+                      addToList(destination);
+                    }
+                  }}
+                  disabled={!currentListName}
                 >
-                  Add to List
+                  Add to {currentListName || "List"}
                 </button>
               ) : (
                 <p style={{ color: "red" }}>Please log in to add destinations to a list.</p>
@@ -171,82 +253,107 @@ const LoggedIn = () => {
         />
       </div>
   
-      {/* Right Section */}
-      <div
-        style={{
-          width: "25%",
-          padding: "20px",
-          overflowY: "auto",
-          backgroundColor: "#f7f7f7",
-        }}
-      >
-        <h2>Your Travel Lists</h2>
-        <div>
-        <h3>Your Lists</h3>
-        <ul>
-  {lists.length > 0 ? (
-    lists.map((list, index) => (
-      <li key={index}>
-        <strong>{list.listName}</strong>
-        <ul>
-          {list.destinationDetails && list.destinationDetails.length > 0 ? (
-            list.destinationDetails.map((destination, i) => (
-              <li key={i}>{destination.name || "Unknown"}</li> // Safely display destination names
-            ))
-          ) : (
-            <li>No destinations found.</li> // Handle empty destinationDetails
-          )}
-        </ul>
-      </li>
-    ))
-  ) : (
-    <p>No lists found.</p>
-  )}
-</ul>
-
-
-</div>
-
-        <div style={{ marginTop: "20px" }}>
-          <h3>Create a List</h3>
-          <input
-            type="text"
-            placeholder="Enter list name"
-            value={listName}
-            onChange={(e) => setListName(e.target.value)}
+{/* Right Section */}
+<div
+  style={{
+    width: "25%",
+    padding: "20px",
+    overflowY: "auto",
+    backgroundColor: "#f7f7f7",
+  }}
+>
+  <h2>Your Travel Lists</h2>
+  <div>
+    <h3>Your Lists</h3>
+    <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
+      {lists.length > 0 ? (
+        lists.map((list, index) => (
+          <div
+            key={index}
             style={{
-              width: "100%",
-              padding: "10px",
-              marginBottom: "10px",
-              borderRadius: "5px",
-              border: "1px solid #ddd",
-            }}
-          />
-          <button
-            onClick={handleCreateList}
-            style={{
-              padding: "10px 20px",
-              backgroundColor: "green",
-              color: "white",
-              border: "none",
-              borderRadius: "5px",
-              cursor: "pointer",
+              padding: "15px",
+              border: `2px solid ${list.selected ? "green" : "#ddd"}`,
+              borderRadius: "10px",
+              backgroundColor: list.selected ? "#e6ffe6" : "#fff",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+              transition: "background-color 0.3s ease, border-color 0.3s ease",
             }}
           >
-            Save List
-          </button>
-          {message && (
-            <p
-              style={{
-                marginTop: "10px",
-                color: message.includes("successfully") ? "green" : "red",
-              }}
-            >
-              {message}
-            </p>
-          )}
-        </div>
-      </div>
+            <h4 style={{ marginBottom: "10px" }}>{list.listName}</h4>
+
+            {list.destinationDetails && list.destinationDetails.length > 0 ? (
+              <ul style={{ paddingLeft: "20px", marginBottom: "10px" }}>
+                {list.destinationDetails.map((destination, i) => (
+                  <li key={i} style={{ marginBottom: "5px" }}>
+                    {destination?.name || "Unknown"}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p style={{ color: "gray", marginBottom: "10px" }}>
+                No destinations found.
+              </p>
+            )}
+
+<div style={{ display: "flex", justifyContent: "space-between" }}>
+  {list.selected ? (
+    <button
+      style={{
+        padding: "10px 15px",
+        backgroundColor: "red",
+        color: "white",
+        border: "none",
+        borderRadius: "5px",
+        cursor: "pointer",
+        transition: "background-color 0.3s ease",
+      }}
+      onClick={handleDeselectList} // Use the updated function here
+    >
+      Deselect
+    </button>
+  ) : (
+    <button
+      style={{
+        padding: "10px 15px",
+        backgroundColor: "blue",
+        color: "white",
+        border: "none",
+        borderRadius: "5px",
+        cursor: "pointer",
+        transition: "background-color 0.3s ease",
+      }}
+      onClick={() => handleSelectList(list.listName)} // Call handleSelectList for selection
+    >
+      Select
+    </button>
+  )}
+
+
+
+              <button
+                style={{
+                  padding: "10px 15px",
+                  backgroundColor: "red",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "5px",
+                  cursor: "pointer",
+                  transition: "background-color 0.3s ease",
+                }}
+                onClick={() => handleDeleteList(list.listName)} // Delete the list
+              >
+                Delete List
+              </button>
+            </div>
+          </div>
+        ))
+      ) : (
+        <p>No lists found.</p>
+      )}
+    </div>
+  </div>
+</div>
+
     </div>
   );
 }

@@ -4,84 +4,61 @@ import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import Fuse from "fuse.js";
 
-const SearchDestination = () => {
-    const [field, setField] = useState("region");
-    const [value, setValue] = useState("");
-    const [page, setPage] = useState(1);
-    const [limit, setLimit] = useState(5);
-    const [results, setResults] = useState([]);
-    const [totalPages, setTotalPages] = useState(0);
-    const [error, setError] = useState("");
-    const [message, setMessage] = useState("");
-    const [isLoggedIn, setIsLoggedIn] = useState(false); // Track login status
-
-
+const SearchDestination = ({ selectedList, setSelectedList }) => {
+  const [field, setField] = useState("region");
+  const [value, setValue] = useState("");
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(5);
+  const [results, setResults] = useState([]);
+  const [totalPages, setTotalPages] = useState(0);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [isLoggedIn, setIsLoggedIn] = useState(false); // Track login status
 
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
   useEffect(() => {
     // Check if a token exists in localStorage
     const token = localStorage.getItem("token");
-    if (token) {
-      setIsLoggedIn(true);
-    } else {
-      setIsLoggedIn(false);
-    }
+    setIsLoggedIn(!!token);
   }, []);
 
   const searchDestinations = async () => {
     try {
-      const params = {
-        field,
-        page,
-        limit,
-      };
-  
-      if (value.trim() !== "") {
-        params.value = value; // Include the search value if provided
-      }
+      const params = { field, page, limit };
+      if (value.trim()) params.value = value;
 
-      
-  
-      // Fetch results from the backend (respects pagination)
       const response = await axios.get(`${BACKEND_URL}/search-destinations`, { params });
-  
-  
-      let refinedResults = response.data.results; // Default to backend results
-      let totalPages = response.data.totalPages; // Default to backend-provided total pages
-  
-      // Perform fuzzy matching only if a search value is provided
-      if (value.trim() !== "") {
-        // Fetch all results (not paginated) for fuzzy matching
+
+      let refinedResults = response.data.results || [];
+      let totalPages = response.data.totalPages || 1;
+
+      // Perform fuzzy matching if a search value is provided
+      if (value.trim()) {
         const allResultsResponse = await axios.get(`${BACKEND_URL}/search-destinations`, {
-          params: { field, page: 1, limit: 1000 }, // Fetch all data for fuzzy matching
+          params: { field, page: 1, limit: 1000 },
         });
-    
-        // Use Fuse.js for fuzzy matching
+
         const fuse = new Fuse(allResultsResponse.data.results, {
-          keys: ["name", "region", "country"], // Fields to fuzzy match
-          threshold: 0.4, // Typo tolerance
-          distance: 100, // Match within character distance
-          ignoreLocation: true, // Match anywhere in the string
+          keys: ["name", "region", "country"],
+          threshold: 0.4,
+          distance: 100,
+          ignoreLocation: true,
         });
-  
+
         const fuzzyResults = fuse.search(value);
-    
-        // Map fuzzy results back to their original objects
         refinedResults = fuzzyResults.map((result) => result.item);
-  
-  
+
         // Recalculate total pages for fuzzy-matched results
         totalPages = Math.ceil(refinedResults.length / limit);
-  
+
         // Apply pagination to fuzzy-matched results
         const startIndex = (page - 1) * limit;
         refinedResults = refinedResults.slice(startIndex, startIndex + limit);
       }
-  
-      // Set results and pagination details
-      setResults(refinedResults); // Use refined or backend results
-      setTotalPages(totalPages); // Keep recalculated totalPages for fuzzy or backend's total pages
+
+      setResults(refinedResults);
+      setTotalPages(totalPages);
       setError("");
     } catch (err) {
       console.error("Error fetching destinations:", err.message);
@@ -89,46 +66,140 @@ const SearchDestination = () => {
     }
   };
 
-  const handleAddToList = async (destinationId) => {
-    const token = localStorage.getItem("token");
-  
-    if (!token) {
-      alert("You must log in to add destinations to your list.");
-      return;
-    }
-  
+  const [selectedListName, setSelectedListName] = useState("");
+
+  const fetchSelectedList = async () => {
     try {
-      const response = await axios.post(
-        `${BACKEND_URL}/add-to-list`,
-        { destinationId },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`, // Include the token in the header
-          },
-        }
-      );
-      alert(response.data.message || "Destination added to your list!");
-    } catch (err) {
-      console.error("Error adding to list:", err);
-      if (err.response?.status === 403) {
-        alert("Unauthorized. Please log in to use this feature.");
-      } else {
-        alert(err.response?.data?.error || "Failed to add to list.");
+      const email = localStorage.getItem("email"); // Fetch the user's email from localStorage
+      if (!email) {
+        console.error("Email not found in localStorage.");
+        return;
       }
+  
+      const response = await axios.get(`${BACKEND_URL}/api/get-selected-list`, {
+        params: { email }, // Pass the email as a query parameter
+      });
+  
+      if (response.data.selectedList) {
+        setSelectedList(response.data.selectedList.listName); // Update the selected list in state
+      } else {
+        setSelectedList(null); // Clear selection if no list is selected
+      }
+    } catch (err) {
+      console.error("Error fetching selected list:", err.message);
     }
   };
+
+  const handleSelectList = async (listName) => {
+    try {
+      const email = localStorage.getItem("email");
+  
+      if (!email) {
+        setMessage("User email not found.");
+        return;
+      }
+  
+      await axios.patch(`${BACKEND_URL}/api/select-list`, { listName, email });
+  
+      setSelectedList(listName); // Update the selected list in local state
+      setMessage(`List "${listName}" selected successfully.`);
+      fetchSelectedList(); // Fetch the updated selected list
+      fetchLists(); // Refresh the lists to reflect changes
+    } catch (err) {
+      console.error("Error selecting list:", err.message);
+      setMessage("Failed to select the list. Please try again.");
+    }
+  };
+  
+  const handleDeselectList = async () => {
+    try {
+      const email = localStorage.getItem("email");
+  
+      if (!email) {
+        setMessage("User email not found.");
+        return;
+      }
+  
+      await axios.patch(`${BACKEND_URL}/api/deselect-list`, { email });
+  
+      setSelectedList(null); // Clear the selected list in local state
+      setMessage("List deselected successfully.");
+      fetchSelectedList(); // Fetch the updated selected list
+      fetchLists(); // Refresh the lists to reflect changes
+    } catch (err) {
+      console.error("Error deselecting list:", err.message);
+      setMessage("Failed to deselect the list. Please try again.");
+    }
+  };
+  
+  
+
+  const handleAddToList = async (destinationId) => {
+    try {
+      // Check if a list is selected (in the backend, it is identified by `selected: true`)
+      const email = localStorage.getItem("email"); // Fetch user email
+      if (!email) {
+        setMessage("Please log in to add destinations.");
+        return;
+      }
+  
+      // Fetch the selected list from the backend
+      const selectedListResponse = await axios.get(`${BACKEND_URL}/api/get-selected-list`, {
+        params: { email },
+      });
+  
+      const selectedList = selectedListResponse.data.selectedList;
+  
+      // Ensure there is a selected list
+      if (!selectedList) {
+        setMessage("No list is currently selected. Please select a list first.");
+        return;
+      }
+  
+      // Add the destination to the selected list
+      const response = await axios.post(`${BACKEND_URL}/api/add-to-list`, {
+        listName: selectedList.listName, // Use the selected list's name
+        destinationId,                  // Pass the destination ID to add
+      });
+  
+      // Log and display success
+      console.log("Add to list response:", response.data);
+      setMessage(response.data.message || `Destination added to "${selectedList.listName}" successfully!`);
+  
+      // Optionally refresh the selected list (if required)
+      fetchSelectedList(); // Fetch updated list
+    } catch (err) {
+      console.error("Error adding to list:", err.response?.data || err.message);
+      setMessage(err.response?.data?.error || "Failed to add destination to the list.");
+    }
+  };
+  
+  
   
   
   
   useEffect(() => {
+    fetchSelectedList(); // Initial fetch
+  
+    const interval = setInterval(() => {
+      fetchSelectedList(); // Poll the selected list periodically
+    }, 5000); // Adjust polling interval as needed (5 seconds here)
+  
+    return () => clearInterval(interval); // Cleanup the interval on component unmount
+  }, []);
+  
+
+  
+  // Update search results dynamically when the page or limit changes
+  useEffect(() => {
     searchDestinations();
   }, [page, limit]);
-
+  
   const handleDuckDuckGoSearch = (query) => {
     const searchUrl = `https://duckduckgo.com/?q=${encodeURIComponent(query)}`;
     window.open(searchUrl, "_blank"); // Opens the search in a new tab
   };
-
+  
   return (
     <div
       style={{
@@ -220,7 +291,7 @@ const SearchDestination = () => {
         </button>
       </div>
 
-      <div style={{ textAlign: "center", marginBottom: "20px" }}>
+<div style={{ textAlign: "center", marginBottom: "20px" }}>
   {/* Display current page and total pages */}
   <p style={{ color: "#fff" }}>
     Page {page} of {totalPages || 1}
@@ -262,32 +333,60 @@ const SearchDestination = () => {
         <p style={{ color: "red", textAlign: "center" }}>{error}</p>
       )}
 
-      <div style={{ display: "grid", gap: "20px" }}>
-        {results.map((result, index) => (
-          <div
-            key={index}
-            style={{
-              border: "1px solid #ccc",
-              borderRadius: "8px",
-              padding: "15px",
-              backgroundColor: "#e6f7ff",
-              boxShadow: "0 2px 5px rgba(0, 0, 0, 0.1)",            
-              marginLeft: "100px",
-              marginRight: "100px",
-            }}
-          >
+<div style={{ display: "grid", gap: "20px" }}>
+  {results.map((result, index) => (
+    <div
+      key={index}
+      style={{
+        border: "1px solid #ccc",
+        borderRadius: "8px",
+        padding: "15px",
+        backgroundColor: "#e6f7ff",
+        boxShadow: "0 2px 5px rgba(0, 0, 0, 0.1)",
+        marginLeft: "100px",
+        marginRight: "100px",
+      }}
+    >
+<div key={result.id}>
+  {isLoggedIn ? (
+    <button
+      onClick={() => handleAddToList(result.id)} // Trigger the updated function
+      style={{
+        marginTop: "10px",
+        padding: "10px 20px",
+        backgroundColor: selectedList ? "blue" : "#ccc", // Use selectedList to manage button state
+        color: "#fff",
+        border: "none",
+        borderRadius: "4px",
+        cursor: selectedList ? "pointer" : "not-allowed", // Allow clicks only if a list is selected
+        transition: "background-color 0.3s ease",
+      }}
+      disabled={!selectedList} // Disable button if no list is selected
+    >
+      {selectedList
+        ? `Add to ${selectedList}` // Show the selected list name dynamically
+        : "Please select a list"}
+    </button>
+  ) : (
+    <button
+      disabled
+      style={{
+        marginTop: "10px",
+        padding: "10px 20px",
+        backgroundColor: "#ccc",
+        color: "#fff",
+        border: "none",
+        borderRadius: "4px",
+        cursor: "not-allowed",
+      }}
+    >
+      Please log in to add destinations
+    </button>
+  )}
+</div>
 
 
-      <div key={result.id}>
-        {isLoggedIn ? (
-          <button onClick={() => handleAddToList(result.id)}>Add to List</button>
-        ) : (
-          <button disabled>
-            Please log in to add destinations to your list
-          </button>
-        )}
-      </div>
-    
+
 
             <h2 style={{ color: "#333" }}>{result.name}</h2>
             <p>

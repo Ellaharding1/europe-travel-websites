@@ -239,62 +239,153 @@ app.get("/search-destinations", async (req, res) => {
   }
 });
 
-app.post("/api/createLists", async (req, res) => {
+app.post("/api/createList", async (req, res) => {
   try {
-    const { listName, destinationIDs, email } = req.body; // Get email from the request body
+    const { email, listName } = req.body; // Get email and list name from the request body
 
-    if (!listName || !Array.isArray(destinationIDs) || !email) {
-      return res.status(400).json({
-        error: "List name, destination IDs, and email are required.",
-      });
+    if (!email || !listName) {
+      return res.status(400).json({ error: "Email and list name are required." });
     }
-    // Prepare the new list object
+
     const newList = {
       listName,
-      destinationIDs,
-      userName, // Name of the user creating the list
-      email,
-      createdAt: new Date(), // Record the current timestamp
-      destinationCount: destinationIDs.length, // Count the number of destinations
+      destinationIDs: [], // Initially empty
+      email, // Associate the list with the user's email
+      createdAt: new Date(),
+      destinationCount: 0,
     };
 
     const result = await db.collection("lists").insertOne(newList);
 
-    res.status(201).json({
-      message: "List created successfully.",
-      listId: result.insertedId,
-    });
+    res.status(201).json({ message: "List created successfully.", listId: result.insertedId });
   } catch (err) {
     console.error("Error creating list:", err.message);
-    res.status(500).json({ error: "Error creating list: " + err.message });
+    res.status(500).json({ error: "Failed to create list: " + err.message });
   }
 });
 
-app.post("/api/add-to-list", authenticateToken, async (req, res) => {
-  const { listName, destinationId } = req.body;
-  const userEmail = req.user.email; // Extracted from the token
 
-  if (!listName || !destinationId) {
-    return res.status(400).json({ error: "List name and destination ID are required." });
-  }
-
+app.post("/api/add-to-list", async (req, res) => {
   try {
-    const userList = await db.collection("lists").findOne({ listName, userEmail });
-    if (!userList) {
+    const { listName, destinationId } = req.body;
+
+    // Validate request data
+    if (!listName || !destinationId) {
+      return res.status(400).json({ error: "List name and destination ID are required." });
+    }
+
+    // Find the list by its name
+    const updatedList = await db.collection("lists").findOneAndUpdate(
+      { listName },
+      { $addToSet: { destinationIDs: destinationId } }, // Use $addToSet to prevent duplicates
+      { returnDocument: "after" } // MongoDB returns the updated document after the update
+    );
+
+    // If the list is not found
+    if (!updatedList.value) {
       return res.status(404).json({ error: "List not found." });
     }
 
-    await db.collection("lists").updateOne(
-      { listName, userEmail },
-      { $push: { destinations: destinationId } }
-    );
-
-    res.json({ message: "Destination added to your list." });
+    // Return the updated list and success message
+    res.status(200).json({
+      message: "Destination added successfully.",
+      updatedList: updatedList.value, // Return the updated list for the frontend if needed
+    });
   } catch (err) {
-    res.status(500).json({ error: "Error adding destination to list: " + err.message });
+    console.error("Error adding destination:", err);
+    res.status(500).json({ error: "Internal server error." });
   }
 });
 
+
+
+// Update list selection status
+app.patch("/api/select-list", async (req, res) => {
+  try {
+    const { email, listName } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: "Email is required." });
+    }
+
+    // Update the selected state of the list
+    await db.collection("lists").updateMany(
+      { email },
+      { $set: { selected: false } } // Deselect all lists first
+    );
+
+    if (listName) {
+      // Select the specified list
+      const result = await db.collection("lists").updateOne(
+        { email, listName },
+        { $set: { selected: true } }
+      );
+
+      if (result.modifiedCount === 0) {
+        return res.status(404).json({ error: "List not found." });
+      }
+    }
+
+    res.status(200).json({ message: "List selection updated successfully." });
+  } catch (err) {
+    console.error("Error updating list selection:", err.message);
+    res.status(500).json({ error: "Internal server error." });
+  }
+});
+
+
+// Backend route to get the selected list
+app.get("/api/get-selected-list", async (req, res) => {
+  try {
+    const email = req.query.email; // Expecting email as a query parameter
+
+    if (!email) {
+      return res.status(400).json({ error: "Email is required." });
+    }
+
+    // Fetch the user's lists from the database
+    const userLists = await db.collection("lists").find({ email }).toArray();
+
+    // Find the selected list
+    const selectedList = userLists.find((list) => list.selected);
+
+    if (!selectedList) {
+      return res.status(200).json({ selectedList: null }); // No selected list
+    }
+
+    res.status(200).json({ selectedList });
+  } catch (err) {
+    console.error("Error fetching selected list:", err.message);
+    res.status(500).json({ error: "Internal server error." });
+  }
+});
+
+app.patch("/api/deselect-list", async (req, res) => {
+  console.log("Request received at /api/deselect-list:", req.body);
+
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: "Email is required." });
+    }
+
+    // Update all lists for the user to set `selected` to false
+    const result = await db.collection("lists").updateMany(
+      { email }, // Match lists by the user's email
+      { $set: { selected: false } } // Set `selected` to false
+    );
+
+    if (result.modifiedCount === 0) {
+      return res.status(404).json({ error: "No lists were updated or found." });
+    }
+
+    res.status(200).json({ message: "List deselected successfully." });
+  } catch (error) {
+    console.error("Error in deselect-list route:", error);
+    res.status(500).json({ error: "Internal server error." });
+  }
+});
 
 
 const { ObjectId } = require("mongodb");
@@ -311,7 +402,7 @@ app.get("/api/getLists", async (req, res) => {
     const lists = await db.collection("lists").find({ email }).toArray();
 
     if (!lists || lists.length === 0) {
-      return res.status(200).json({ lists: [] }); // Return an empty list if none are found
+      return res.status(200).json({ lists: [], selectedList: null }); // Return an empty list if none are found
     }
 
     // Collect all destination IDs from the lists
@@ -330,6 +421,9 @@ app.get("/api/getLists", async (req, res) => {
       return map;
     }, {});
 
+    // Find the currently selected list
+    const selectedList = lists.find((list) => list.selected) || null;
+
     // Attach destination details to each list
     const updatedLists = lists.map((list) => ({
       ...list,
@@ -338,12 +432,13 @@ app.get("/api/getLists", async (req, res) => {
       ),
     }));
 
-    res.status(200).json({ lists: updatedLists });
+    res.status(200).json({ lists: updatedLists, selectedList: selectedList?.listName || null });
   } catch (err) {
     console.error("Error fetching lists:", err.message);
     res.status(500).json({ error: "Error fetching lists: " + err.message });
   }
 });
+
 
 
 
