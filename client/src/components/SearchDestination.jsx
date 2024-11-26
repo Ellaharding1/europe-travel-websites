@@ -105,14 +105,18 @@ const SearchDestination = ({ selectedList, selectedListId, setSelectedList, user
       }
   
       console.log("Adding to list with ID:", selectedListId, "Email:", email, "Destination:", destinationId);
-  
+      await updateLastEdited(selectedListId); // Call the API to update the lastEdited timestamp
+
       const response = await axios.post(`${BACKEND_URL}/api/add-to-list`, {
         listId: selectedListId,
         destinationId,
         email,
       });
+
   
+      
       console.log("Add-to-list response:", response.data);
+
   
       // Update the selected list directly in the frontend
       setLists((prevLists) =>
@@ -132,12 +136,15 @@ const SearchDestination = ({ selectedList, selectedListId, setSelectedList, user
       setMessage(err.response?.data?.error || "Failed to add destination.");
     }
   };
-  
-  
-  
-  
-  
-  
+
+  const updateLastEdited = async (listId) => {
+    try {
+      await axios.patch(`${BACKEND_URL}/api/updateLastEdited`, { listId });
+      console.log("Last edited timestamp updated successfully.");
+    } catch (err) {
+      console.error("Error updating last edited timestamp:", err.message);
+    }
+  };
   
   
 

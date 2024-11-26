@@ -46,7 +46,6 @@ const LoggedIn = () => {
         params: { email: userEmail },
       });
 
-      console.log("Fetched lists:", response.data.lists); // Debug fetched lists
       setLists(response.data.lists || []); // Update state with new lists
 
       // Find and update the selected list
@@ -105,7 +104,6 @@ const LoggedIn = () => {
     }
   };
   
-
   const handleDeselectList = async () => {
     try {
       if (!userEmail) {
@@ -131,7 +129,8 @@ const LoggedIn = () => {
         listId: list._id,
         visibility: newVisibility,
       });
-  
+      console.log(list._id);
+      await updateLastEdited(list._id); // Call the API to update the lastEdited timestamp
       setMessage(`Visibility of "${list.listName}" changed to ${newVisibility}.`);
       fetchLists(); // Refresh the lists
     } catch (err) {
@@ -140,41 +139,12 @@ const LoggedIn = () => {
     }
   };
 
-const handleSaveEdits = async (list) => {
-  try {
-    await axios.patch(`${BACKEND_URL}/api/editList`, {
-      email: userEmail,
-      listId: list._id,
-      description: editDescription,
-      // Send other fields if needed
-      listName: list.listName,
-      visibility: list.visibility
-    });
-
-    setMessage("List updated successfully!");
-    setIsEditing(false);
-    fetchLists(); // Refresh the lists to show updated data
-  } catch (err) {
-    console.error("Error saving edits:", err.message);
-    setMessage("Failed to update list. Please try again.");
-  }
-};
-
 const handleCancelEdit = () => {
   setEditingList(null); // Clear the editing state
   setEditName(""); // Reset the input fields
   setEditDescription("");
   setEditVisibility("private");
-};
-
-const startEditingList = (list) => {
-  setEditingList(list._id); // Set the ID of the list being edited
-  setEditName(list.listName); // Initialize the name in the form
-  setEditDescription(list.description || ""); // Initialize the description
-  setEditVisibility(list.visibility || "private"); // Initialize visibility
-};
-
-  
+  };
 
   const handleCreateList = async () => {
     if (!listName.trim()) {
@@ -226,22 +196,21 @@ const startEditingList = (list) => {
     }
   };
 
-  const handleDescriptionEdit = async (listId, newDescription) => {
-    try {
-      const response = await axios.patch(`${BACKEND_URL}/api/editDescription`, {
-        listId,
-        description: newDescription,
-      });
-      console.log(response.data.message); // Success message
-      fetchLists(); // Refresh the lists to reflect the updated description
-    } catch (err) {
-      console.error(
-        "Error updating description:",
-        err.response?.data?.error || err.message
-      );
-      setMessage("Error updating description.");
-    }
-  };
+  // Example: Editing the description
+const handleDescriptionEdit = async (listId, newDescription) => {
+  try {
+    await axios.patch(`${BACKEND_URL}/api/editDescription`, {
+      listId,
+      description: newDescription,
+      
+    });
+
+    await updateLastEdited(listId); // Call the API to update the lastEdited timestamp
+    fetchLists(); // Refresh lists
+  } catch (err) {
+    console.error("Error editing description:", err.message);
+  }
+};
 
   const handleRemoveDestination = async (listId, destinationId) => {
     try {
@@ -250,6 +219,7 @@ const startEditingList = (list) => {
         destinationId,
       });
   
+      await updateLastEdited(listId); // Call the API to update the lastEdited timestamp
       console.log(response.data.message); // Log the success message
       fetchLists(); // Refresh the lists to show updated data
     } catch (err) {
@@ -257,6 +227,17 @@ const startEditingList = (list) => {
       setMessage("Failed to remove destination. Please try again.");
     }
   };
+  
+  const updateLastEdited = async (listId) => {
+    try {
+      await axios.patch(`${BACKEND_URL}/api/updateLastEdited`, { listId });
+      console.log("Last edited timestamp updated successfully.");
+    } catch (err) {
+      console.error("Error updating last edited timestamp:", err.message);
+    }
+  };
+  
+  
   
 
   return (
@@ -509,6 +490,7 @@ const startEditingList = (list) => {
                     </p>
                     <button
                       onClick={() => {
+                        setIsEditing(true);
                         setEditListId(list._id); // Start editing this list
                         setEditDescription(list.description || ""); // Initialize edit with current description
                       }}
@@ -523,7 +505,13 @@ const startEditingList = (list) => {
                     >
                       Edit
                     </button>
+
+                    
                   </div>
+
+                  <p style={{ fontSize: "12px", color: "gray" }}>
+                    Last Edited: {list.lastEdited ? new Date(list.lastEdited).toLocaleString() : "Never"}
+                  </p>
                 </>
               )}
 

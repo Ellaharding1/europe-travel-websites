@@ -485,6 +485,7 @@ app.patch("/api/editList", async (req, res) => {
     if (result.modifiedCount === 0) {
       return res.status(404).json({ error: "List not found or no changes made." });
     }
+    
 
     res.status(200).json({ message: "List updated successfully." });
   } catch (err) {
@@ -548,10 +549,64 @@ app.patch("/api/remove-destination", async (req, res) => {
     res.status(500).json({ error: "Failed to remove destination: " + err.message });
   }
 });
+app.patch("/api/updateLastEdited", async (req, res) => {
+  try {
+    const { listId } = req.body;
 
+    if (!listId) {
+      return res.status(400).json({ error: "List ID is required." });
+    }
 
+    const result = await db.collection("lists").updateOne(
+      { _id: new ObjectId(listId) },
+      { $set: { lastEdited: new Date() } }
+    );
 
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: "List not found." });
+    }
 
+    res.status(200).json({ message: "Last edited timestamp updated successfully." });
+  } catch (err) {
+    console.error("Error updating last edited timestamp:", err.message);
+    res.status(500).json({ error: "Internal server error." });
+  }
+});
+app.patch("/api/update-list", async (req, res) => {
+  try {
+    const { listId, email, updatedFields } = req.body; // Expect updatedFields to be an object with fields to update
+
+    if (!listId || !email || !updatedFields) {
+      return res.status(400).json({ error: "List ID, email, and fields to update are required." });
+    }
+
+    const validFields = ["listName", "description", "visibility", "destinationIDs"]; // Fields allowed to update
+    const updateData = {};
+
+    for (const key in updatedFields) {
+      if (validFields.includes(key)) {
+        updateData[key] = updatedFields[key];
+      }
+    }
+
+    // Update the lastEditedAt field to the current timestamp
+    updateData.lastEditedAt = new Date();
+
+    const result = await db.collection("lists").updateOne(
+      { _id: new ObjectId(listId), email },
+      { $set: updateData }
+    );
+
+    if (result.modifiedCount === 0) {
+      return res.status(404).json({ error: "List not found or no changes made." });
+    }
+
+    res.status(200).json({ message: "List updated successfully." });
+  } catch (err) {
+    console.error("Error updating list:", err.message);
+    res.status(500).json({ error: "Failed to update list: " + err.message });
+  }
+});
 
 
 
