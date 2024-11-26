@@ -92,7 +92,7 @@ const SearchDestination = ({ selectedList, selectedListId, setSelectedList, user
         setSelectedList(null); // Clear selection if no list is selected
       }
     } catch (err) {
-      console.error("Error fetching selected list:", err.message);
+      
     }
   };
    

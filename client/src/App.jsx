@@ -9,7 +9,7 @@ import SearchDestination from "./components/SearchDestination";
 import theme from "./theme"; // Import the custom theme
 import logo from "../img/logo.png";
 import LoggedIn from "./components/LoggedIn";
-
+import PublicLists from "./components/PublicLists";
 
 // HomePage component with proper centering
 function HomePage() {
@@ -60,11 +60,26 @@ function HomePage() {
     <Button
       variant="contained"
       color="primary"
+      style={{ marginRight: "10px" }}
       component={Link}
       to="/search-destination"
     >
       Search Destinations
     </Button>
+
+
+    <Button
+      variant="contained"
+      color="primary"
+      component={Link}
+      to="/public-lists"
+    >
+      Public Lists
+    </Button>
+
+
+
+
   </Box>
 </Box>
 
@@ -74,6 +89,7 @@ function HomePage() {
 // Main App component
 function App() {
   return (
+    
     <ThemeProvider theme={theme}>
       <Router>
         <div>
@@ -96,6 +112,10 @@ function App() {
               <Button color="inherit" component={Link} to="/search-destination">
                 Search Destination
               </Button>
+              <Button color="inherit" component={Link} to="/public-lists">
+                Public Lists
+              </Button>
+
 
             </Toolbar>
           </AppBar>
@@ -111,6 +131,7 @@ function App() {
             <Route path="/verify-email" element={<EmailVerification />} />
             <Route path="/search-destination" element={<SearchDestination />} />
             <Route path="/loggedIn" element={<LoggedIn />} /> {/* New route */}
+            <Route path="/public-lists" element={<PublicLists />} />
           </Routes>
 
 
