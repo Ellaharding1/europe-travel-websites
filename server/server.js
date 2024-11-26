@@ -49,7 +49,6 @@ const client = new MongoClient(DATABASE_URI);
     app.get("/", (req, res) => {
       res.send("Server is up and running!");
     });
-
     app.post("/api/add-to-list", async (req, res) => {
       const { listId, destinationId, email } = req.body;
     
@@ -62,10 +61,10 @@ const client = new MongoClient(DATABASE_URI);
         const updatedList = await db.collection("lists").findOneAndUpdate(
           { _id: new ObjectId(listId), email: email.trim() },
           {
-            $addToSet: { destinationIDs: destinationId }, // Add destination ID if not already present
+            $addToSet: { destinationIDs: destinationId }, // Avoid duplicates
             $inc: { destinationCount: 1 }, // Increment destination count
           },
-          { returnDocument: "after" } // Return the updated document
+          { returnDocument: "after" } // Return updated list
         );
     
         if (!updatedList.value) {
@@ -81,7 +80,6 @@ const client = new MongoClient(DATABASE_URI);
         res.status(500).json({ error: "Internal server error." });
       }
     });
-    
     
     // Register User
   app.post("/register", async (req, res) => {
@@ -203,7 +201,6 @@ const client = new MongoClient(DATABASE_URI);
     }
   });
   
-  
   // Login User
   app.post("/login", async (req, res) => {
     const { email, password } = req.body;
@@ -321,6 +318,65 @@ app.post("/api/createList", async (req, res) => {
   } catch (err) {
     console.error("Error creating list:", err.message);
     res.status(500).json({ error: "Failed to create list: " + err.message });
+  }
+});
+
+app.post("/api/add-review", async (req, res) => {
+  try {
+    const { listId, rating, comment } = req.body;
+
+    if (!listId || !rating || rating < 1 || rating > 5) {
+      return res.status(400).json({ error: "List ID and a valid rating (1-5) are required." });
+    }
+
+    // Check if the user is logged in
+    const token = req.headers.authorization?.split(" ")[1]; // Extract the token from headers
+    if (!token) {
+      return res.status(401).json({ error: "You must be logged in to add a review." });
+    }
+
+    // Decode the user from the token (using your JWT secret key)
+    let userEmail;
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      userEmail = decoded.email; // Assuming the token contains the email
+    } catch (err) {
+      return res.status(401).json({ error: "Invalid or expired token." });
+    }
+
+    // Fetch the list
+    const list = await db.collection("lists").findOne({ _id: new ObjectId(listId) });
+    if (!list) {
+      return res.status(404).json({ error: "List not found." });
+    }
+
+    // Create a review object
+    const review = {
+      reviewer: userEmail, // Store the logged-in user's email as the reviewer
+      rating,
+      comment: comment || "", // Optional comment
+      createdAt: new Date(),
+    };
+
+    // Update the list to add the review
+    const result = await db.collection("lists").updateOne(
+      { _id: new ObjectId(listId) },
+      {
+        $push: { reviews: review }, // Add the review to the `reviews` array
+        $set: {
+          averageRating: calculateNewAverage(list.averageRating, list.reviews?.length || 0, rating),
+        },
+      }
+    );
+
+    if (result.modifiedCount === 0) {
+      return res.status(500).json({ error: "Failed to add review." });
+    }
+
+    res.status(200).json({ message: "Review added successfully!" });
+  } catch (err) {
+    console.error("Error adding review:", err.message);
+    res.status(500).json({ error: "Failed to add review." });
   }
 });
 
@@ -661,6 +717,11 @@ app.patch("/api/update-list", async (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
+
+function calculateNewAverage(currentAverage, currentCount, newRating) {
+  return (currentAverage * currentCount + newRating) / (currentCount + 1);
+}
+
 
 
 

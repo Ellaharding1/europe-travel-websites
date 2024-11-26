@@ -9,6 +9,7 @@ const PublicLists = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false); // Removed unused lists state
   const [reviewState, setReviewState] = useState({}); // Track review form states for each list
   const getField = (field, fallback = "N/A") => field || fallback;
+  const [expandedReviewListId, setExpandedReviewListId] = useState(null); // Tracks which list's review form is expanded
 
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
@@ -45,46 +46,60 @@ const PublicLists = () => {
     );
   };
 
+  const toggleReviewForm = (listId) => {
+    setExpandedReviewListId((prevId) => (prevId === listId ? null : listId));
+  };
+
   const handleReviewSubmit = async (e, listId) => {
     e.preventDefault();
-
+  
+    const token = localStorage.getItem("token"); // Get the token from localStorage
+  
+    if (!token) {
+      alert("You must log in to write a review."); // Show an alert if the user is not logged in
+      return; // Stop further execution
+    }
+  
     const { rating, comment } = reviewState[listId] || {};
-
+  
     if (!rating || rating < 1 || rating > 5) {
       alert("Rating must be between 1 and 5.");
       return;
     }
-
+  
     try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        alert("You must be logged in to add a review.");
-        return;
-      }
-
       const response = await axios.post(
         `${BACKEND_URL}/api/add-review`,
         { listId, rating, comment },
         {
-          headers: { Authorization: `Bearer ${token}` }, // Send token in Authorization header
+          headers: {
+            Authorization: `Bearer ${token}`, // Include the token in the request header
+          },
         }
       );
-
+  
       alert(response.data.message);
-
+  
+      // Update the list with the new review
       setPublicLists((prevLists) =>
         prevLists.map((list) =>
           list._id === listId ? { ...list, ...response.data.updatedList } : list
         )
       );
-
+  
+      // Clear the review state for this list
       setReviewState((prevState) => ({
         ...prevState,
-        [listId]: { rating: "", comment: "" }, // Clear form for this list
+        [listId]: { rating: "", comment: "" },
       }));
     } catch (err) {
       console.error("Error adding review:", err.message);
-      alert("Failed to add review. Please try again.");
+  
+      if (err.response && err.response.status === 401) {
+        alert("You must log in to write a review."); // Handle unauthorized error
+      } else {
+        alert("Failed to add review. Please try again."); // Handle other errors
+      }
     }
   };
 
@@ -169,110 +184,89 @@ const PublicLists = () => {
                   <Typography variant="body2" color="textSecondary">
                   <strong>Average Rating:</strong> {list.averageRating ? list.averageRating.toFixed(2) : "No reviews yet"}
                   </Typography>
-                  <Box sx={{ marginTop: "15px" }}>
-                <Typography variant="h6">Reviews:</Typography>
-                {list.reviews && list.reviews.length > 0 ? (
-                  list.reviews.map((review, index) => (
-                    <Box
-                      key={index}
-                      role="listitem"
-
-                      sx={{
-                        padding: "10px",
-                        border: "1px solid #ddd",
-                        borderRadius: "6px",
-                        marginBottom: "10px",
-                        backgroundColor: "#f9f9f9",
-                      }}
-                    >
-                      <Typography variant="body2">
-                        <strong>Reviewer:</strong> {review.reviewer}
-                      </Typography>
-                      <Typography variant="body2">
-                        <strong>Rating:</strong> {review.rating}
-                      </Typography>
-                      <Typography variant="body2">
-                        <strong>Comment:</strong> {review.comment || "No comment provided."}
-                      </Typography>
-                    </Box>
-                  ))
-                ) : (
-                  <Typography variant="body2" color="textSecondary">
-                    No reviews yet.
-                  </Typography>
-                )}
-              </Box>
-
-              <Box sx={{ marginTop: "20px" }}>
-                {isLoggedIn ? (
-                  <Box component="form" onSubmit={(e) => handleReviewSubmit(e, list._id)}>
-                    <Typography variant="h6" gutterBottom>
-                      Add a Review
-                    </Typography>
-                    <TextField
-                      label="Rating (1-5)"
-                      type="number"
-                      value={reviewState[list._id]?.rating || ""}
-                      onChange={(e) =>
-                        handleInputChange(list._id, "rating", e.target.value)
-                      }
-                      fullWidth
-                      required
-                      sx={{ marginBottom: "10px" }}
-                    />
-                      <TextField
-                        label="Comment (optional)"
-                        value={reviewState[list._id]?.comment || ""}
-                        onChange={(e) => handleInputChange(list._id, "comment", e.target.value)}
-                        fullWidth
-                        multiline
-                        rows={3}
-                        sx={{ marginBottom: "10px" }}
-                      />
-
-                    <Button variant="contained" color="primary" type="submit">
-                      Submit Review
-                    </Button>
+                  
                   </Box>
-                ) : (
-                  <Typography variant="body1" color="textSecondary" align="center">
-                    Please <a href="/login">log in</a> or <a href="/register">sign up</a> to leave a review.
-                  </Typography>
-                )}
-              </Box>
-
-
-                </Box>
-                <Button
+                  <Button
                   variant="contained"
                   color="primary"
-                  onClick={() => toggleExpandList(list._id)}
-                  sx={{
-                    height: "40px",
-                  }}
+                  onClick={() => toggleReviewForm(list._id)}
+                  sx={{ height: "40px" }}
                 >
-                  {expandedListId === list._id ? "Collapse" : "Expand"}
+                  {expandedReviewListId === list._id ? "Close Review Form" : "Write a Review"}
                 </Button>
               </Box>
 
               {/* Divider */}
               <Divider sx={{ marginY: "10px" }} />
 
-              {/* Expanded Section */}
-              <Collapse in={expandedListId === list._id}>
+              {/* Expanded Review Form */}
+              <Collapse in={expandedReviewListId === list._id}>
                 <Box
                   sx={{
+                    marginTop: "20px",
                     padding: "10px",
                     backgroundColor: "rgba(240, 240, 240, 0.9)",
                     borderRadius: "8px",
                   }}
                 >
-                  <Typography variant="body1" gutterBottom>
-                    <strong>Description:</strong> {list.description || "No description available."}
-                  </Typography>
-                  <Typography variant="h6" gutterBottom>
-                    Destinations:
-                  </Typography>
+                  {isLoggedIn ? (
+                    <Box component="form" onSubmit={(e) => handleReviewSubmit(e, list._id)}>
+                      <Typography variant="h6" gutterBottom>
+                        Add a Review
+                      </Typography>
+                      <TextField
+                        label="Rating (1-5)"
+                        type="number"
+                        value={reviewState[list._id]?.rating || ""}
+                        onChange={(e) =>
+                          handleInputChange(list._id, "rating", e.target.value)
+                        }
+                        fullWidth
+                        required
+                        sx={{ marginBottom: "10px" }}
+                      />
+                      <TextField
+                        label="Comment (optional)"
+                        value={reviewState[list._id]?.comment || ""}
+                        onChange={(e) =>
+                          handleInputChange(list._id, "comment", e.target.value)
+                        }
+                        fullWidth
+                        multiline
+                        rows={3}
+                        sx={{ marginBottom: "10px" }}
+                      />
+                      <Button variant="contained" color="primary" type="submit">
+                        Submit Review
+                      </Button>
+                    </Box>
+                  ) : (
+                    <Typography variant="body1" color="textSecondary" align="center">
+                      Please <a href="/login">log in</a> or <a href="/register">sign up</a> to leave a review.
+                    </Typography>
+                  )}
+                </Box>
+              </Collapse>
+            
+
+              <Typography variant="h6" gutterBottom>
+                  Destinations:
+                </Typography>
+
+                {/* First Button: Expand All Destinations */}
+                <Box sx={{ marginBottom: "10px" }}>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    color="primary"
+                    onClick={() => toggleExpandList(list._id)}
+                  >
+                    {expandedListId === list._id ? "Hide Destinations" : "Show Destinations"}
+                  </Button>
+                </Box>
+
+                {/* Collapsible Section for All Destinations */}
+                <Collapse in={expandedListId === list._id}>
                   {list.destinations && list.destinations.length > 0 ? (
                     <Box component="ul" sx={{ paddingLeft: "20px", margin: 0 }}>
                       {list.destinations.map((destination, index) => (
@@ -287,6 +281,7 @@ const PublicLists = () => {
                             backgroundColor: "#ffffff",
                           }}
                         >
+                          {/* Basic Destination Info */}
                           <Typography variant="body2">
                             <strong>Name:</strong> {destination.name}
                           </Typography>
@@ -296,18 +291,22 @@ const PublicLists = () => {
                           <Typography variant="body2">
                             <strong>Country:</strong> {destination.country}
                           </Typography>
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            color="secondary"
-                            sx={{ marginTop: "8px" }}
-                            onClick={() => toggleDestinationExpansion(destination.id || index)}
-                          >
-                            {expandedDestinationId === (destination.id || index) ? "Less Details" : "More Details"}
-                          </Button>
 
+                          {/* Second Button: Show More Details */}
+                          <Box sx={{ marginTop: "8px" }}>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              color="secondary"
+                              onClick={() => toggleDestinationExpansion(destination.id || index)}
+                            >
+                              {expandedDestinationId === (destination.id || index)
+                                ? "Less Details"
+                                : "More Details"}
+                            </Button>
+                          </Box>
 
-                          {/* Destination Details */}
+                          {/* Collapsible Section for Detailed Destination Info */}
                           <Collapse in={expandedDestinationId === (destination.id || index)}>
                             <Box
                               sx={{
@@ -321,13 +320,15 @@ const PublicLists = () => {
                                 <strong>Category:</strong> {getField(destination.category)}
                               </Typography>
                               <Typography variant="body2">
-                                <strong>Approximate Annual Tourists:</strong> {getField(destination.approximateAnnualTourists)}
+                                <strong>Approximate Annual Tourists:</strong>{" "}
+                                {getField(destination.approximateAnnualTourists)}
                               </Typography>
                               <Typography variant="body2">
                                 <strong>Currency:</strong> {getField(destination.currency)}
                               </Typography>
                               <Typography variant="body2">
-                                <strong>Majority Religion:</strong> {getField(destination.majorityReligion)}
+                                <strong>Majority Religion:</strong>{" "}
+                                {getField(destination.majorityReligion)}
                               </Typography>
                               <Typography variant="body2">
                                 <strong>Famous Foods:</strong> {getField(destination.famousFoods)}
@@ -336,7 +337,8 @@ const PublicLists = () => {
                                 <strong>Language:</strong> {getField(destination.language)}
                               </Typography>
                               <Typography variant="body2">
-                                <strong>Best Time to Visit:</strong> {getField(destination.bestTimetoVisit)}
+                                <strong>Best Time to Visit:</strong>{" "}
+                                {getField(destination.bestTimetoVisit)}
                               </Typography>
                               <Typography variant="body2">
                                 <strong>Cost of Living:</strong> {getField(destination.costofLiving)}
@@ -345,7 +347,8 @@ const PublicLists = () => {
                                 <strong>Safety:</strong> {getField(destination.safety)}
                               </Typography>
                               <Typography variant="body2">
-                                <strong>Cultural Significance:</strong> {getField(destination.culturalSignificance)}
+                                <strong>Cultural Significance:</strong>{" "}
+                                {getField(destination.culturalSignificance)}
                               </Typography>
                               <Typography variant="body2">
                                 <strong>Description:</strong> {getField(destination.description)}
@@ -360,8 +363,7 @@ const PublicLists = () => {
                       No destinations available.
                     </Typography>
                   )}
-                </Box>
-              </Collapse>
+                </Collapse>
             </Paper>
           ))}
         </Box>
