@@ -278,16 +278,31 @@ app.post("/api/createList", async (req, res) => {
   try {
     const { email, listName, description = "", visibility = "private" } = req.body;
 
+    // Validate input
     if (!email || !listName) {
       return res.status(400).json({ error: "Email and list name are required." });
     }
 
+    if (!validator.isEmail(email)) {
+      return res.status(400).json({ error: "Invalid email format." });
+    }
+
     // Trim inputs
-    const trimmedListName = listName.trim();
-    const trimmedDescription = description.trim();
+    const trimmedListName = (listName || "").trim();
+    const trimmedDescription = (description || "").trim();
+
+    // Fetch user to get nickname
+    const user = await db.collection("users").findOne({ email });
+    if (!user) {
+      return res.status(404).json({ error: "User not found." });
+    }
+    const nickname = user.nickname || "Anonymous";
 
     // Check if a list with the same name already exists for the user
-    const existingList = await db.collection("lists").findOne({ email, listName: trimmedListName });
+    const existingList = await db.collection("lists").findOne({
+      email,
+      listName: trimmedListName,
+    });
     if (existingList) {
       return res.status(400).json({ error: "List name must be unique for each user." });
     }
@@ -320,6 +335,7 @@ app.post("/api/createList", async (req, res) => {
     res.status(500).json({ error: "Failed to create list: " + err.message });
   }
 });
+
 
 app.post("/api/add-review", async (req, res) => {
   try {

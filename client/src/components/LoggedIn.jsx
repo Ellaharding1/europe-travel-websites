@@ -259,7 +259,7 @@ const handleDescriptionEdit = async (listId, newDescription) => {
         borderRight: "1px solid #ccc",
         overflowY: "auto",
         padding: "20px",
-        backgroundColor: "#f7f7f7",
+        backgroundColor: "#ccdef0",
       }}
     >
       <h2>Public Lists</h2>
