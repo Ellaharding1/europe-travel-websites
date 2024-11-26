@@ -190,7 +190,11 @@ const PublicLists = () => {
                   variant="contained"
                   color="primary"
                   onClick={() => toggleReviewForm(list._id)}
-                  sx={{ height: "40px" }}
+                  sx={{
+                    height: "30px",
+                    fontSize: "9px", // Adjust this value to change the text size
+                    padding: "5px 10px", // Optional: Adjust padding if needed
+                  }}
                 >
                   {expandedReviewListId === list._id ? "Close Review Form" : "Write a Review"}
                 </Button>

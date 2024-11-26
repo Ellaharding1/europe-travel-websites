@@ -251,6 +251,20 @@ const handleDescriptionEdit = async (listId, newDescription) => {
         overflow: "hidden",
       }}
     >
+
+      {/* Public Lists (Left Section) */}
+    <div
+      style={{
+        width: "30%", // Adjust width as needed
+        borderRight: "1px solid #ccc",
+        overflowY: "auto",
+        padding: "20px",
+        backgroundColor: "#f7f7f7",
+      }}
+    >
+      <h2>Public Lists</h2>
+      <PublicLists />
+    </div>
       {/* Left Section (Search Destinations) */}
       <div
         style={{
@@ -321,79 +335,7 @@ const handleDescriptionEdit = async (listId, newDescription) => {
         />
       </div>
 
-      {/* Toggle Button for Public Lists */}
-      <button
-        onClick={() => setIsPublicListsCollapsed(!isPublicListsCollapsed)}
-        style={{
-          backgroundColor: "gray",
-          color: "white",
-          border: "none",
-          cursor: "pointer",
-          position: "absolute",
-          right: isPublicListsCollapsed ? "10%" : "35%",
-          top: "50%",
-          transform: "translateY(-50%)",
-          padding: "10px",
-          borderRadius: "5px",
-          zIndex: 1000,
-        }}
-      >
-        {isPublicListsCollapsed ? ">" : "<"}
-      </button>
-
-      {/* Public Lists Section */}
-      <div
-        style={{
-          width: isPublicListsCollapsed ? "10%" : "25%",
-          padding: isPublicListsCollapsed ? "5px" : "20px",
-          overflowY: "auto",
-          backgroundColor: "#f0f0f0",
-          transition: "width 0.3s ease",
-        }}
-      >
-        {!isPublicListsCollapsed && (
-          <>
-            <h2>Public Lists</h2>
-
-            {/* Reuse Public Lists Component */}
-            <PublicLists
-              customRenderList={(list) => (
-                <div
-                  key={list._id}
-                  style={{
-                    padding: "15px",
-                    border: "1px solid #ddd",
-                    borderRadius: "10px",
-                    marginBottom: "10px",
-                    backgroundColor: "#fff",
-                  }}
-                >
-                  <h4>{list.listName}</h4>
-                  <p>
-                    <strong>Creator:</strong> {list.nickname}
-                  </p>
-                  <p>
-                    <strong>Destinations:</strong> {list.destinationCount || 0}
-                  </p>
-                  <button
-                    style={{
-                      padding: "5px 10px",
-                      backgroundColor: "blue",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "5px",
-                      cursor: "pointer",
-                    }}
-                    onClick={() => console.log("View list details", list._id)}
-                  >
-                    View Details
-                  </button>
-                </div>
-              )}
-            />
-          </>
-        )}
-      </div>
+      
 
 
 
