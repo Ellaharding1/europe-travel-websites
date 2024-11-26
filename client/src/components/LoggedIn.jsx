@@ -89,10 +89,7 @@ const LoggedIn = () => {
         email,
       });
 
-      if (!listName.trim()) {
-        setMessage("List name cannot be empty.");
-        return;
-      }
+    
   
       setSelectedList(list.listName);
       setSelectedListId(list._id); // Update selected list ID

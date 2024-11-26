@@ -159,6 +159,24 @@ const client = new MongoClient(DATABASE_URI);
     }
   });
 
+  app.get("/api/public-lists", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit) || 10;
+  
+      const publicLists = await db.collection("lists")
+        .find({ visibility: "public" })
+        .sort({ lastEdited: -1 }) // Sort by last modified date
+        .limit(limit)
+        .toArray();
+  
+      res.status(200).json({ lists: publicLists });
+    } catch (err) {
+      console.error("Error fetching public lists:", err.message);
+      res.status(500).json({ error: "Failed to fetch public lists." });
+    }
+  });
+  
+
   // Login User
   app.post("/login", async (req, res) => {
     const { email, password } = req.body;
