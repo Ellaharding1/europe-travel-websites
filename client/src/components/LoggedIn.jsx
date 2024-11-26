@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import SearchDestination from "./SearchDestination";
+import PublicLists from "./PublicLists";
+
 
 const LoggedIn = () => {
   const [editName, setEditName] = useState("");
@@ -15,6 +17,9 @@ const LoggedIn = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem("token"));
   const [isEditing, setIsEditing] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false); // State for toggling the "Your Travel Lists" section
+  const [isPublicListsCollapsed, setIsPublicListsCollapsed] = useState(false); // State for "Public Lists"
+  const [isTravelListCollapsed, setIsTravelListCollapsed] = useState(false); // State for "Your Travel Lists"
 
 
   const [lastEditedTime, setLastEditedTime] = useState({});
@@ -233,9 +238,8 @@ const handleDescriptionEdit = async (listId, newDescription) => {
       console.error("Error updating last edited timestamp:", err.message);
     }
   };
-  
-  
-  
+
+
 
   return (
     <div
@@ -247,24 +251,25 @@ const handleDescriptionEdit = async (listId, newDescription) => {
         overflow: "hidden",
       }}
     >
-      {/* Left Section */}
+      {/* Left Section (Search Destinations) */}
       <div
         style={{
-          width: "75%",
+          width: isPublicListsCollapsed ? "90%" : "65%",
           borderRight: "1px solid #ccc",
           overflowY: "auto",
           padding: "20px",
+          transition: "width 0.3s ease",
         }}
       >
         <h2>Welcome to your Dashboard!</h2>
   
         {/* Search Destination Component */}
         <SearchDestination
-  selectedList={selectedList}
-  selectedListId={selectedListId} // Pass the selected list ID
-  setSelectedList={setSelectedList}
-  fetchLists={fetchLists}
-          addToList={(destination) => {
+            selectedList={selectedList}
+            selectedListId={selectedListId} // Pass the selected list ID
+            setSelectedList={setSelectedList}
+            fetchLists={fetchLists}
+            ddToList={(destination) => {
             if (!currentListName) {
               setMessage("Please select a list to add destinations.");
               return;
@@ -315,16 +320,115 @@ const handleDescriptionEdit = async (listId, newDescription) => {
           )}
         />
       </div>
+
+      {/* Toggle Button for Public Lists */}
+      <button
+        onClick={() => setIsPublicListsCollapsed(!isPublicListsCollapsed)}
+        style={{
+          backgroundColor: "gray",
+          color: "white",
+          border: "none",
+          cursor: "pointer",
+          position: "absolute",
+          right: isPublicListsCollapsed ? "10%" : "35%",
+          top: "50%",
+          transform: "translateY(-50%)",
+          padding: "10px",
+          borderRadius: "5px",
+          zIndex: 1000,
+        }}
+      >
+        {isPublicListsCollapsed ? ">" : "<"}
+      </button>
+
+      {/* Public Lists Section */}
+      <div
+        style={{
+          width: isPublicListsCollapsed ? "10%" : "25%",
+          padding: isPublicListsCollapsed ? "5px" : "20px",
+          overflowY: "auto",
+          backgroundColor: "#f0f0f0",
+          transition: "width 0.3s ease",
+        }}
+      >
+        {!isPublicListsCollapsed && (
+          <>
+            <h2>Public Lists</h2>
+
+            {/* Reuse Public Lists Component */}
+            <PublicLists
+              customRenderList={(list) => (
+                <div
+                  key={list._id}
+                  style={{
+                    padding: "15px",
+                    border: "1px solid #ddd",
+                    borderRadius: "10px",
+                    marginBottom: "10px",
+                    backgroundColor: "#fff",
+                  }}
+                >
+                  <h4>{list.listName}</h4>
+                  <p>
+                    <strong>Creator:</strong> {list.nickname}
+                  </p>
+                  <p>
+                    <strong>Destinations:</strong> {list.destinationCount || 0}
+                  </p>
+                  <button
+                    style={{
+                      padding: "5px 10px",
+                      backgroundColor: "blue",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "5px",
+                      cursor: "pointer",
+                    }}
+                    onClick={() => console.log("View list details", list._id)}
+                  >
+                    View Details
+                  </button>
+                </div>
+              )}
+            />
+          </>
+        )}
+      </div>
+
+
+
+      {/* Toggle Button for Your Travel Lists */}
+      <button
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              style={{
+                backgroundColor: "gray",
+                color: "white",
+                border: "none",
+                cursor: "pointer",
+                position: "absolute",
+                right: isCollapsed ? "5%" : "25%",
+                top: "50%",
+                transform: "translateY(-50%)",
+                padding: "10px",
+                borderRadius: "5px",
+                zIndex: 1000,
+              }}
+            >
+              {isCollapsed ? ">" : "<"}
+            </button>
   
 {/* Right Section */}
 <div
-  style={{
-    width: "25%",
-    padding: "20px",
-    overflowY: "auto",
-    backgroundColor: "#f7f7f7",
-  }}
->
+        style={{
+          width: isCollapsed ? "5%" : "25%",
+          padding: isCollapsed ? "10px" : "20px",
+          overflowY: "auto",
+          backgroundColor: "#f7f7f7",
+          transition: "width 0.3s ease",
+        }}
+      >
+        {!isCollapsed && (
+          <>
   <h2>Your Travel Lists</h2>
 
   {/* Create List Section */}
@@ -683,6 +787,9 @@ const handleDescriptionEdit = async (listId, newDescription) => {
         )}
           </div>
         </div>
+        </>
+        )}
+        
       </div>
     </div>
   );
