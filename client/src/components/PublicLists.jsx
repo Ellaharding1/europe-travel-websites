@@ -1,14 +1,18 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { Box, Typography, Paper, Button, Collapse, Divider } from "@mui/material";
+import { Box, Typography, Paper, Button, Collapse, Divider, TextField } from "@mui/material";
 
 const PublicLists = () => {
   const [publicLists, setPublicLists] = useState([]);
   const [expandedListId, setExpandedListId] = useState(null); // Track expanded list
+  const [expandedDestinationId, setExpandedDestinationId] = useState(null); // Track which destination is expanded
+  const [isLoggedIn, setIsLoggedIn] = useState(false); // Removed unused lists state
+  const [reviewState, setReviewState] = useState({}); // Track review form states for each list
+  const getField = (field, fallback = "N/A") => field || fallback;
+
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
   useEffect(() => {
-    // Fetch public destination lists
     const fetchPublicLists = async () => {
       try {
         const response = await axios.get(`${BACKEND_URL}/api/public-lists`, {
@@ -17,15 +21,78 @@ const PublicLists = () => {
         setPublicLists(response.data.lists || []);
       } catch (err) {
         console.error("Error fetching public lists:", err.message);
+        alert("Failed to load public lists. Please try again later."); // User-friendly error
       }
     };
 
     fetchPublicLists();
   }, []);
 
+  useEffect(() => {
+    // Check if the user is logged in
+    const token = localStorage.getItem("token"); // Corrected to check for token
+    setIsLoggedIn(!!token); // Set to true if token exists
+  }, []);
+
   // Toggle list expansion
   const toggleExpandList = (listId) => {
     setExpandedListId((prevId) => (prevId === listId ? null : listId));
+  };
+ 
+  const toggleDestinationExpansion = (destinationId) => {
+    setExpandedDestinationId((prevId) =>
+      prevId === destinationId ? null : destinationId
+    );
+  };
+
+  const handleReviewSubmit = async (e, listId) => {
+    e.preventDefault();
+
+    const { rating, comment } = reviewState[listId] || {};
+
+    if (!rating || rating < 1 || rating > 5) {
+      alert("Rating must be between 1 and 5.");
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        alert("You must be logged in to add a review.");
+        return;
+      }
+
+      const response = await axios.post(
+        `${BACKEND_URL}/api/add-review`,
+        { listId, rating, comment },
+        {
+          headers: { Authorization: `Bearer ${token}` }, // Send token in Authorization header
+        }
+      );
+
+      alert(response.data.message);
+
+      setPublicLists((prevLists) =>
+        prevLists.map((list) =>
+          list._id === listId ? { ...list, ...response.data.updatedList } : list
+        )
+      );
+
+      setReviewState((prevState) => ({
+        ...prevState,
+        [listId]: { rating: "", comment: "" }, // Clear form for this list
+      }));
+    } catch (err) {
+      console.error("Error adding review:", err.message);
+      alert("Failed to add review. Please try again.");
+    }
+  };
+
+  const handleInputChange = (listId, field, value) => {
+    setReviewState((prevState) => ({
+      ...prevState,
+      [listId]: { ...prevState[listId], [field]: value },
+    }));
   };
 
   return (
@@ -94,14 +161,87 @@ const PublicLists = () => {
                     {list.listName}
                   </Typography>
                   <Typography variant="body2" color="textSecondary">
-                    <strong>Creator:</strong> {list.userName}
+                    <strong>Creator:</strong> {list.nickname}
                   </Typography>
                   <Typography variant="body2" color="textSecondary">
                     <strong>Destinations:</strong> {list.destinationCount}
                   </Typography>
                   <Typography variant="body2" color="textSecondary">
-                    <strong>Average Rating:</strong> {list.averageRating || "N/A"}
+                  <strong>Average Rating:</strong> {list.averageRating ? list.averageRating.toFixed(2) : "No reviews yet"}
                   </Typography>
+                  <Box sx={{ marginTop: "15px" }}>
+                <Typography variant="h6">Reviews:</Typography>
+                {list.reviews && list.reviews.length > 0 ? (
+                  list.reviews.map((review, index) => (
+                    <Box
+                      key={index}
+                      role="listitem"
+
+                      sx={{
+                        padding: "10px",
+                        border: "1px solid #ddd",
+                        borderRadius: "6px",
+                        marginBottom: "10px",
+                        backgroundColor: "#f9f9f9",
+                      }}
+                    >
+                      <Typography variant="body2">
+                        <strong>Reviewer:</strong> {review.reviewer}
+                      </Typography>
+                      <Typography variant="body2">
+                        <strong>Rating:</strong> {review.rating}
+                      </Typography>
+                      <Typography variant="body2">
+                        <strong>Comment:</strong> {review.comment || "No comment provided."}
+                      </Typography>
+                    </Box>
+                  ))
+                ) : (
+                  <Typography variant="body2" color="textSecondary">
+                    No reviews yet.
+                  </Typography>
+                )}
+              </Box>
+
+              <Box sx={{ marginTop: "20px" }}>
+                {isLoggedIn ? (
+                  <Box component="form" onSubmit={(e) => handleReviewSubmit(e, list._id)}>
+                    <Typography variant="h6" gutterBottom>
+                      Add a Review
+                    </Typography>
+                    <TextField
+                      label="Rating (1-5)"
+                      type="number"
+                      value={reviewState[list._id]?.rating || ""}
+                      onChange={(e) =>
+                        handleInputChange(list._id, "rating", e.target.value)
+                      }
+                      fullWidth
+                      required
+                      sx={{ marginBottom: "10px" }}
+                    />
+                      <TextField
+                        label="Comment (optional)"
+                        value={reviewState[list._id]?.comment || ""}
+                        onChange={(e) => handleInputChange(list._id, "comment", e.target.value)}
+                        fullWidth
+                        multiline
+                        rows={3}
+                        sx={{ marginBottom: "10px" }}
+                      />
+
+                    <Button variant="contained" color="primary" type="submit">
+                      Submit Review
+                    </Button>
+                  </Box>
+                ) : (
+                  <Typography variant="body1" color="textSecondary" align="center">
+                    Please <a href="/login">log in</a> or <a href="/register">sign up</a> to leave a review.
+                  </Typography>
+                )}
+              </Box>
+
+
                 </Box>
                 <Button
                   variant="contained"
@@ -161,10 +301,57 @@ const PublicLists = () => {
                             variant="outlined"
                             color="secondary"
                             sx={{ marginTop: "8px" }}
-                            onClick={() => alert(JSON.stringify(destination, null, 2))}
+                            onClick={() => toggleDestinationExpansion(destination.id || index)}
                           >
-                            More Details
+                            {expandedDestinationId === (destination.id || index) ? "Less Details" : "More Details"}
                           </Button>
+
+
+                          {/* Destination Details */}
+                          <Collapse in={expandedDestinationId === (destination.id || index)}>
+                            <Box
+                              sx={{
+                                marginTop: "10px",
+                                padding: "10px",
+                                backgroundColor: "#f0f0f0",
+                                borderRadius: "6px",
+                              }}
+                            >
+                              <Typography variant="body2">
+                                <strong>Category:</strong> {getField(destination.category)}
+                              </Typography>
+                              <Typography variant="body2">
+                                <strong>Approximate Annual Tourists:</strong> {getField(destination.approximateAnnualTourists)}
+                              </Typography>
+                              <Typography variant="body2">
+                                <strong>Currency:</strong> {getField(destination.currency)}
+                              </Typography>
+                              <Typography variant="body2">
+                                <strong>Majority Religion:</strong> {getField(destination.majorityReligion)}
+                              </Typography>
+                              <Typography variant="body2">
+                                <strong>Famous Foods:</strong> {getField(destination.famousFoods)}
+                              </Typography>
+                              <Typography variant="body2">
+                                <strong>Language:</strong> {getField(destination.language)}
+                              </Typography>
+                              <Typography variant="body2">
+                                <strong>Best Time to Visit:</strong> {getField(destination.bestTimetoVisit)}
+                              </Typography>
+                              <Typography variant="body2">
+                                <strong>Cost of Living:</strong> {getField(destination.costofLiving)}
+                              </Typography>
+                              <Typography variant="body2">
+                                <strong>Safety:</strong> {getField(destination.safety)}
+                              </Typography>
+                              <Typography variant="body2">
+                                <strong>Cultural Significance:</strong> {getField(destination.culturalSignificance)}
+                              </Typography>
+                              <Typography variant="body2">
+                                <strong>Description:</strong> {getField(destination.description)}
+                              </Typography>
+                            </Box>
+                          </Collapse>
                         </Box>
                       ))}
                     </Box>

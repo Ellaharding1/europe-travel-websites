@@ -56,12 +56,16 @@ const client = new MongoClient(DATABASE_URI);
       if (!listId || !destinationId || !email) {
         return res.status(400).json({ error: "List ID, destination ID, and email are required." });
       }
-  
+    
       try {
+        // Add the destination to the list
         const updatedList = await db.collection("lists").findOneAndUpdate(
           { _id: new ObjectId(listId), email: email.trim() },
-          { $addToSet: { destinationIDs: destinationId } },
-          { returnDocument: "after" }
+          {
+            $addToSet: { destinationIDs: destinationId }, // Add destination ID if not already present
+            $inc: { destinationCount: 1 }, // Increment destination count
+          },
+          { returnDocument: "after" } // Return the updated document
         );
     
         if (!updatedList.value) {
@@ -77,6 +81,7 @@ const client = new MongoClient(DATABASE_URI);
         res.status(500).json({ error: "Internal server error." });
       }
     });
+    
     
     // Register User
   app.post("/register", async (req, res) => {
@@ -158,25 +163,47 @@ const client = new MongoClient(DATABASE_URI);
       res.status(400).json({ error: "Invalid or expired token." });
     }
   });
-
   app.get("/api/public-lists", async (req, res) => {
     try {
       const limit = parseInt(req.query.limit) || 10;
   
+      // Fetch public lists
       const publicLists = await db.collection("lists")
         .find({ visibility: "public" })
-        .sort({ lastEdited: -1 }) // Sort by last modified date
+        .sort({ lastEdited: -1 })
         .limit(limit)
         .toArray();
   
-      res.status(200).json({ lists: publicLists });
+      if (!publicLists.length) {
+        return res.status(200).json({ lists: [] }); // Gracefully handle no lists
+      }
+  
+      // Fetch destinations for each list
+      const listsWithDestinations = await Promise.all(
+        publicLists.map(async (list) => {
+          const destinations = await db.collection("destinations")
+            .find({ id: { $in: list.destinationIDs || [] } }) // Ensure destinationIDs is valid
+            .toArray();
+  
+          return {
+            ...list,
+            destinations,
+          };
+        })
+      );
+  
+      // Send a single response
+      res.status(200).json({ lists: listsWithDestinations });
     } catch (err) {
       console.error("Error fetching public lists:", err.message);
-      res.status(500).json({ error: "Failed to fetch public lists." });
+  
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Failed to fetch public lists." });
+      }
     }
   });
   
-
+  
   // Login User
   app.post("/login", async (req, res) => {
     const { email, password } = req.body;
@@ -281,6 +308,7 @@ app.post("/api/createList", async (req, res) => {
       visibility,
       destinationIDs: [],
       email,
+      nickname,
       createdAt: new Date(),
       destinationCount: 0,
     };
@@ -483,6 +511,8 @@ app.delete("/api/deleteList", async (req, res) => {
 app.patch("/api/editList", async (req, res) => {
   try {
     const { listId, listName, description, visibility } = req.body;
+    destinationCount=destinationCount+1;
+
 
     if (!listId || !listName) {
       return res.status(400).json({ error: "List ID and name are required." });
@@ -496,6 +526,7 @@ app.patch("/api/editList", async (req, res) => {
           description,
           visibility,
           lastEditedAt: new Date(), // Record the last edited time
+          destinationCount,
         },
       }
     );
@@ -598,6 +629,7 @@ app.patch("/api/update-list", async (req, res) => {
       return res.status(400).json({ error: "List ID, email, and fields to update are required." });
     }
 
+
     const validFields = ["listName", "description", "visibility", "destinationIDs"]; // Fields allowed to update
     const updateData = {};
 
@@ -625,8 +657,6 @@ app.patch("/api/update-list", async (req, res) => {
     res.status(500).json({ error: "Failed to update list: " + err.message });
   }
 });
-
-
 
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
