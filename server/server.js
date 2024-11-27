@@ -145,36 +145,58 @@ const client = new MongoClient(DATABASE_URI);
   // Verify Email
   app.get("/verify-email", async (req, res) => {
     const { token } = req.query;
-
+  
     if (!token) {
+      console.error("No token provided.");
       return res.status(400).json({ error: "Token is missing." });
     }
-
+  
     try {
+      // Decode the token
       const decodedToken = jwt.decode(token);
-
+      console.log("Decoded token:", decodedToken);
+  
       if (!decodedToken || !decodedToken.email) {
+        console.error("Invalid token format.");
         return res.status(400).json({ error: "Invalid token format." });
       }
-
+  
+      // Find the user
       const user = await usersCollection.findOne({ email: decodedToken.email });
-
       if (!user) {
+        console.error("User not found for email:", decodedToken.email);
         return res.status(404).json({ error: "User not found." });
       }
-
-      jwt.verify(token, user.secretKey);
-
-      await usersCollection.updateOne(
+  
+      // Check if the email is already verified
+      if (user.isVerified) {
+        console.log("Email is already verified for:", decodedToken.email);
+        return res.status(200).json({ message: "Email is verified." });
+      }
+  
+      // Verify the token
+      jwt.verify(token, process.env.TOKEN_SECRET);
+      console.log("Token verified successfully for user:", decodedToken.email);
+  
+      // Update user's verification status
+      const result = await usersCollection.updateOne(
         { email: decodedToken.email },
         { $set: { isVerified: true } }
       );
-
+  
+      if (result.modifiedCount === 0) {
+        console.error("Failed to update verification status.");
+        return res.status(500).json({ error: "Failed to verify email." });
+      }
+  
       res.status(200).json({ message: "Email verified successfully." });
     } catch (err) {
+      console.error("Verification error:", err.message);
       res.status(400).json({ error: "Invalid or expired token." });
     }
   });
+  
+  
   app.get("/api/public-lists", async (req, res) => {
     try {
       const limit = parseInt(req.query.limit) || 10;

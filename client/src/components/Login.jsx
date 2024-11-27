@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { Box, Button, TextField, Typography } from "@mui/material";
 
 function Login() {
   const [formData, setFormData] = useState({ email: "", password: "" });
@@ -52,52 +53,82 @@ function Login() {
   };
 
   return (
-    <div style={{ textAlign: "center", marginTop: "20px" }}>
-      <h2>Login</h2>
-      <form onSubmit={handleSubmit} style={{ marginTop: "10px" }}>
-        <label htmlFor="email">Email:</label>
-        <input
-          id="email"
-          type="email"
+    <Box
+      display="flex"
+      flexDirection="column"
+      alignItems="center"
+      justifyContent="flex-start" // Align content higher on the page
+      height="100vh"
+      textAlign="center"
+      sx={{
+        margin: "0 auto",
+        backgroundImage: "url('../img/background.png')", // Reuse HomePage background
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+        color: "#ffffff",
+        paddingTop: "15vh", // Adjust top padding to move the form higher
+      }}
+    >
+      <Typography variant="h4" gutterBottom>
+        Login
+      </Typography>
+      <form onSubmit={handleSubmit} style={{ width: "100%", maxWidth: "400px" }}>
+        <TextField
+          label="Email"
           name="email"
-          placeholder="Email"
+          type="email"
           value={formData.email}
           onChange={handleChange}
           required
-          style={{ display: "block", marginBottom: "10px", padding: "8px", width: "100%" }}
+          fullWidth
+          margin="normal"
+          sx={{
+            backgroundColor: "rgba(255, 255, 255, 0.9)",
+            borderRadius: "5px",
+          }}
         />
-        <label htmlFor="password">Password:</label>
-        <input
-          id="password"
-          type="password"
+        <TextField
+          label="Password"
           name="password"
-          placeholder="Password"
+          type="password"
           value={formData.password}
           onChange={handleChange}
           required
-          style={{ display: "block", marginBottom: "10px", padding: "8px", width: "100%" }}
-        />
-        <button
-          type="submit"
-          style={{
-            padding: "10px 20px",
-            backgroundColor: loading ? "#CCCCCC" : "#007BFF",
-            color: "#FFF",
-            border: "none",
+          fullWidth
+          margin="normal"
+          sx={{
+            backgroundColor: "rgba(255, 255, 255, 0.9)",
             borderRadius: "5px",
+          }}
+        />
+        <Button
+          type="submit"
+          variant="contained"
+          color="primary"
+          disabled={loading}
+          sx={{
+            marginTop: "20px",
+            padding: "10px",
+            width: "100%",
             cursor: loading ? "not-allowed" : "pointer",
           }}
-          disabled={loading}
         >
           {loading ? "Logging in..." : "Login"}
-        </button>
+        </Button>
       </form>
       {message && (
-        <p style={{ marginTop: "20px", color: message === "Login successful!" ? "green" : "red" }}>
+        <Typography
+          variant="body1"
+          sx={{
+            marginTop: "20px",
+            color: message === "Login successful!" ? "green" : "red",
+          }}
+        >
           {message}
-        </p>
+        </Typography>
       )}
-    </div>
+    </Box>
   );
 }
 

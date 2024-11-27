@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import axios from "axios";
-import { Box, Button, TextField, Dialog, DialogTitle, DialogContent, DialogActions } from "@mui/material";
+import { Box, Button, TextField, Dialog, DialogTitle, DialogContent, DialogActions, Typography } from "@mui/material";
 
 function Register() {
   const [formData, setFormData] = useState({ email: "", password: "", nickname: "" });
@@ -33,26 +33,6 @@ function Register() {
     }
   };
 
-  const handleVerifyEmail = async (verificationLink) => {
-    try {
-      const token = verificationLink.split("token=")[1];
-      console.log("Extracted token:", token);
-
-      if (!token) {
-        setVerificationMessage("Invalid token.");
-        return;
-      }
-
-      const response = await axios.get(
-        `${import.meta.env.VITE_BACKEND_URL}/verify-email?token=${token}`
-      );
-      setVerificationMessage(response.data.message); // Success message
-    } catch (error) {
-      console.error("Verification Error:", error.response?.data);
-      setVerificationMessage(error.response?.data?.error || "Verification failed.");
-    }
-  };
-
   const renderMessage = () => {
     if (!message) return null;
 
@@ -76,13 +56,23 @@ function Register() {
       display="flex"
       flexDirection="column"
       alignItems="center"
-      justifyContent="center"
+      justifyContent="flex-start" // Move content toward the top
       height="100vh"
       textAlign="center"
+      sx={{
+        margin: "0 auto",
+        backgroundImage: "url('../img/background.png')", // Reuse the HomePage background
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+        color: "#ffffff",
+        paddingTop: "10vh", // Adjust padding to move content further up
+      }}
     >
-      {/* Registration Form */}
-      <h4>Register</h4>
-      <form onSubmit={handleSubmit}>
+      <Typography variant="h4" gutterBottom>
+        Register
+      </Typography>
+      <form onSubmit={handleSubmit} style={{ width: "100%", maxWidth: "400px" }}>
         <TextField
           label="Email"
           name="email"
@@ -92,6 +82,10 @@ function Register() {
           required
           fullWidth
           margin="normal"
+          sx={{
+            backgroundColor: "rgba(255, 255, 255, 0.9)",
+            borderRadius: "5px",
+          }}
         />
         <TextField
           label="Password"
@@ -102,6 +96,10 @@ function Register() {
           required
           fullWidth
           margin="normal"
+          sx={{
+            backgroundColor: "rgba(255, 255, 255, 0.9)",
+            borderRadius: "5px",
+          }}
         />
         <TextField
           label="Nickname"
@@ -111,8 +109,12 @@ function Register() {
           required
           fullWidth
           margin="normal"
+          sx={{
+            backgroundColor: "rgba(255, 255, 255, 0.9)",
+            borderRadius: "5px",
+          }}
         />
-        <Button type="submit" variant="contained" color="primary">
+        <Button type="submit" variant="contained" color="primary" sx={{ marginTop: "20px" }}>
           Register
         </Button>
       </form>

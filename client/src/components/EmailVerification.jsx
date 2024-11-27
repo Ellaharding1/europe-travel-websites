@@ -5,35 +5,45 @@ import axios from "axios";
 function EmailVerification() {
   const [searchParams] = useSearchParams();
   const [message, setMessage] = useState("");
+  const [isSuccess, setIsSuccess] = useState(false);
 
   useEffect(() => {
     const verifyEmail = async () => {
       const token = searchParams.get("token");
+      if (!token) {
+        setMessage("Verification token is missing.");
+        setIsSuccess(false);
+        return;
+      }
+
       try {
-        // Use environment variable for the backend URL
-        const response = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/verify-email?token=${token}`);
-        setMessage(response.data.message || "Email verified successfully."); // Extract the message field
+        const response = await axios.get(
+          `${import.meta.env.VITE_BACKEND_URL}/verify-email?token=${token}`
+        );
+        setMessage(response.data.message || "Email verified successfully.");
+        setIsSuccess(true);
       } catch (error) {
-        setMessage(error.response?.data?.error || "An error occurred during verification.");
+        const errorMessage = error.response?.data?.error || "An error occurred during verification.";
+        setMessage(errorMessage);
+        setIsSuccess(false);
       }
     };
+
     verifyEmail();
   }, [searchParams]);
-
-  const renderMessage = () => {
-    if (!message) return null;
-
-    if (typeof message === "object") {
-      return JSON.stringify(message); // Safely handle objects
-    }
-
-    return message; // Display string messages directly
-  };
 
   return (
     <div style={{ textAlign: "center", marginTop: "20px" }}>
       <h2>Email Verification</h2>
-      <p style={{ color: "#555", marginTop: "10px" }}>{renderMessage()}</p>
+      <p
+        style={{
+          color: isSuccess ? "green" : "red",
+          fontWeight: "bold",
+          marginTop: "10px",
+        }}
+      >
+        {message}
+      </p>
     </div>
   );
 }
