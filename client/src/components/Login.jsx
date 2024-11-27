@@ -19,9 +19,15 @@ function Login() {
       setMessage("Email and password are required.");
       return;
     }
+
+    if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      setMessage("Please enter a valid email address.");
+      return;
+    }
+
     setLoading(true);
     try {
-      const response = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/login`, formData);
+      const response = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/login`, formData);
       setMessage("Login successful!");
 
       // Save token and email
@@ -31,24 +37,27 @@ function Login() {
       // Redirect to logged-in page
       navigate("/loggedIn");
     } catch (error) {
-      setMessage(
-        error.response?.data?.error || "An error occurred during login. Please try again."
-      );
+      console.error("Login error:", error);
+      const status = error.response?.status;
+      if (status === 401) {
+        setMessage("Invalid credentials. Please try again.");
+      } else if (status === 403) {
+        setMessage("Your account is disabled or not verified.");
+      } else {
+        setMessage("An unexpected error occurred. Please try again later.");
+      }
     } finally {
       setLoading(false);
     }
-  };
-
-  const renderMessage = () => {
-    if (!message) return null;
-    return typeof message === "object" ? JSON.stringify(message) : message;
   };
 
   return (
     <div style={{ textAlign: "center", marginTop: "20px" }}>
       <h2>Login</h2>
       <form onSubmit={handleSubmit} style={{ marginTop: "10px" }}>
+        <label htmlFor="email">Email:</label>
         <input
+          id="email"
           type="email"
           name="email"
           placeholder="Email"
@@ -57,7 +66,9 @@ function Login() {
           required
           style={{ display: "block", marginBottom: "10px", padding: "8px", width: "100%" }}
         />
+        <label htmlFor="password">Password:</label>
         <input
+          id="password"
           type="password"
           name="password"
           placeholder="Password"
@@ -83,7 +94,7 @@ function Login() {
       </form>
       {message && (
         <p style={{ marginTop: "20px", color: message === "Login successful!" ? "green" : "red" }}>
-          {renderMessage()}
+          {message}
         </p>
       )}
     </div>

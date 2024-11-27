@@ -5,6 +5,7 @@ const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
 const validator = require("validator");
+const Joi = require('joi');
 
 require("dotenv").config(); // Load environment variables
 const FRONTEND_URL = process.env.FRONTEND_URL;
@@ -23,6 +24,7 @@ app.use(
   cors({
     origin: process.env.FRONTEND_URL, // Ensure this matches http://localhost:5173
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"], // Include Authorization header
     credentials: true, // Allow cookies if needed
   })
 );
@@ -82,51 +84,63 @@ const client = new MongoClient(DATABASE_URI);
     });
     
     // Register User
-  app.post("/register", async (req, res) => {
-    const { email, password, nickname } = req.body;
-
-    try {
-      if (!validator.isEmail(email)) {
-        return res.status(400).json({ error: "Invalid email format" });
+    app.post("/register", async (req, res) => {
+      const { email, password, nickname } = req.body;
+    
+      try {
+        // Validate email format
+        if (!validator.isEmail(email)) {
+          return res.status(400).json({ error: "Invalid email format" });
+        }
+    
+        // Check if user already exists
+        const existingUser = await usersCollection.findOne({ email });
+        if (existingUser) {
+          return res.status(400).json({ error: "User already exists" });
+        }
+    
+        // Hash the password and generate a secret key
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const secretKey = crypto.randomBytes(32).toString("hex");
+    
+        // Create the new user object
+        const newUser = {
+          email,
+          password: hashedPassword,
+          nickname,
+          secretKey,
+          isDisabled: false,
+          isVerified: false,
+        };
+    
+        // Insert the new user into the database
+        const result = await usersCollection.insertOne(newUser);
+    
+        // Generate a token for email verification
+        const token = jwt.sign(
+          { id: result.insertedId, email: newUser.email },
+          process.env.TOKEN_SECRET, // Use TOKEN_SECRET here
+          { expiresIn: "1h" }
+        );
+        
+    
+        console.log("TOKEN_SECRET:", process.env.TOKEN_SECRET);
+    
+        // Create the verification link
+        const verificationLink = `${FRONTEND_URL}/verify-email?token=${token}`;
+        console.log(`Verification link: ${verificationLink}`);
+    
+        // Respond with success
+        res.status(201).json({
+          message: "User registered successfully. Please verify your email.",
+          verificationLink,
+        });
+      } catch (err) {
+        console.error("Registration error:", err.message);
+        res.status(500).json({ error: "Failed to register user", details: err.message });
       }
-
-      const existingUser = await usersCollection.findOne({ email });
-      if (existingUser) {
-        return res.status(400).json({ error: "User already exists" });
-      }
-
-      const hashedPassword = await bcrypt.hash(password, 10);
-      const secretKey = crypto.randomBytes(32).toString("hex");
-
-      const newUser = {
-        email,
-        password: hashedPassword,
-        nickname,
-        secretKey,
-        isDisabled: false,
-        isVerified: false,
-      };
-
-      await usersCollection.insertOne(newUser);
-
-      const token = jwt.sign(
-        { id: newUser._id, email: newUser.email },
-        newUser.secretKey,
-        { expiresIn: "1h" }
-      );
-      
-      const verificationLink = `${FRONTEND_URL}/verify-email?token=${token}`;
-      console.log(`Verification link: ${verificationLink}`);
-
-      res.status(201).json({
-        message: "User registered successfully. Please verify your email.",
-        verificationLink,
-      });
-      
-    } catch (err) {
-      res.status(500).json({ error: "Failed to register user", details: err.message });
-    }
-  });
+    });
+    
 
   // Verify Email
   app.get("/verify-email", async (req, res) => {
@@ -201,34 +215,45 @@ const client = new MongoClient(DATABASE_URI);
     }
   });
   // Login User
-  app.post("/login", async (req, res) => {
+  app.post("/api/login", async (req, res) => {
     const { email, password } = req.body;
-
+  
     try {
-      if (!validator.isEmail(email)) {
-        return res.status(400).json({ error: "Invalid email format." });
-      }
-
+      // Fetch user from the database
       const user = await usersCollection.findOne({ email });
       if (!user) {
         return res.status(404).json({ error: "User not found." });
       }
-
+  
+      // Verify password
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        return res.status(401).json({ error: "Invalid credentials." });
+      }
+  
+      // Check if the user is disabled or not verified
       if (user.isDisabled) {
-        return res.status(403).json({ error: "Account is disabled. Please contact the administrator." });
+        return res.status(403).json({ error: "Account is disabled." });
       }
-
-      const isPasswordValid = await bcrypt.compare(password, user.password);
-      if (!isPasswordValid) {
-        return res.status(400).json({ error: "Invalid password." });
+      if (!user.isVerified) {
+        return res.status(403).json({ error: "Account is not verified." });
       }
-
-      const token = jwt.sign({ id: user._id, email: user.email }, user.secretKey, { expiresIn: "1h" });
-      res.json({ message: "Login successful", token });
+  
+      // Generate a token
+      const token = jwt.sign(
+        { id: user._id, email: user.email },
+        user.secretKey, // Use user-specific secretKey
+        { expiresIn: "1h" }
+      );
+  
+      res.status(200).json({ token, nickname: user.nickname });
     } catch (err) {
-      res.status(500).json({ error: "Failed to log in", details: err.message });
+      console.error("Login error:", err.message);
+      res.status(500).json({ error: "Internal server error." });
     }
   });
+
+  
   app.get("/destinations", async (req, res) => {
     try {
       const destinations = await db.collection("destinations").find().toArray(); // Fetch all destinations
@@ -332,64 +357,60 @@ app.post("/api/createList", async (req, res) => {
     res.status(500).json({ error: "Failed to create list: " + err.message });
   }
 });
-app.post("/api/add-review", async (req, res) => {
+
+app.post("/api/add-review", authenticateToken, async (req, res) => {
+  const { listId, rating, comment } = req.body;
+
+  // Validate listId
+  if (!ObjectId.isValid(listId)) {
+    return res.status(400).json({ error: "Invalid list ID" });
+  }
+
+  // Validate rating and comment using Joi or custom validation
+  const reviewSchema = Joi.object({
+    rating: Joi.number().integer().min(1).max(5).required(),
+    comment: Joi.string().optional(),
+  });
+
+  const { error } = reviewSchema.validate({ rating, comment });
+  if (error) {
+    return res.status(400).json({ error: error.details[0].message });
+  }
+
   try {
-    const { listId, rating, comment } = req.body;
+    // Check if the list exists and is public
+    const list = await db.collection("lists").findOne({
+      _id: new ObjectId(listId),
+      visibility: "public",
+    });
 
-    if (!listId || !rating || rating < 1 || rating > 5) {
-      return res.status(400).json({ error: "List ID and a valid rating (1-5) are required." });
-    }
-
-    // Check if the user is logged in
-    const token = req.headers.authorization?.split(" ")[1]; // Extract the token from headers
-    if (!token) {
-      return res.status(401).json({ error: "You must be logged in to add a review." });
-    }
-
-    // Decode the user from the token (using your JWT secret key)
-    let userEmail;
-    try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      userEmail = decoded.email; // Assuming the token contains the email
-    } catch (err) {
-      return res.status(401).json({ error: "Invalid or expired token." });
-    }
-
-    // Fetch the list
-    const list = await db.collection("lists").findOne({ _id: new ObjectId(listId) });
     if (!list) {
-      return res.status(404).json({ error: "List not found." });
+      return res.status(404).json({ error: "Public list not found" });
     }
 
-    // Create a review object
+    // Create the review object
     const review = {
-      reviewer: userEmail, // Store the logged-in user's email as the reviewer
+      _id: new ObjectId(),
+      userId: new ObjectId(req.user.id), // User ID from token
       rating,
-      comment: comment || "", // Optional comment
+      comment: comment || "", // Default to an empty string if no comment is provided
       createdAt: new Date(),
     };
 
-    // Update the list to add the review
-    const result = await db.collection("lists").updateOne(
+    // Add the review to the list
+    await db.collection("lists").updateOne(
       { _id: new ObjectId(listId) },
-      {
-        $push: { reviews: review }, // Add the review to the `reviews` array
-        $set: {
-          averageRating: calculateNewAverage(list.averageRating, list.reviews?.length || 0, rating),
-        },
-      }
+      { $push: { reviews: review } }
     );
 
-    if (result.modifiedCount === 0) {
-      return res.status(500).json({ error: "Failed to add review." });
-    }
-
-    res.status(200).json({ message: "Review added successfully!" });
-  } catch (err) {
-    console.error("Error adding review:", err.message);
-    res.status(500).json({ error: "Failed to add review." });
+    res.status(201).json({ message: "Review added successfully" });
+  } catch (error) {
+    console.error("Error in add-review:", error.message);
+    res.status(500).json({ error: "Failed to add review" });
   }
 });
+
+
 // Update list selection status
 app.patch("/api/select-list", async (req, res) => {
   try {
@@ -716,14 +737,37 @@ app.patch("/api/update-list", async (req, res) => {
   }
 });
 
+app.get("/api/test-token", authenticateToken, (req, res) => {
+  res.json({ message: "Token is valid", user: req.user });
+});
+
+
+
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
 
+// Helper function to calculate the new average rating
 function calculateNewAverage(currentAverage, currentCount, newRating) {
-  return (currentAverage * currentCount + newRating) / (currentCount + 1);
+  return ((currentAverage * currentCount) + newRating) / (currentCount + 1);
 }
 
+// Middleware for authentication
+async function authenticateToken(req, res, next) {
+  const token = req.headers.authorization?.split(" ")[1];
+  if (!token) {
+    return res.status(401).json({ error: "Access denied. No token provided." });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.TOKEN_SECRET);
+    req.user = decoded; // Attach user information to the request
+    next();
+  } catch (err) {
+    console.error("Token verification failed:", err.message);
+    return res.status(403).json({ error: "Invalid or expired token." });
+  }
+}
 
 
 
@@ -796,33 +840,9 @@ function calculateNewAverage(currentAverage, currentCount, newRating) {
   }
 }); 
 
+*/
 
-// Middleware for token authentication
-async function authenticateToken(req, res, next) {
-  const token = req.headers["authorization"]?.split(" ")[1];
-  if (!token) return res.status(401).json({ error: "Access denied. No token provided." });
 
-  try {
-    const decoded = jwt.decode(token); // Decode to get user ID
-    if (!decoded?.id) {
-      return res.status(403).json({ error: "Invalid token payload." });
-    }
-
-    const user = await usersCollection.findOne({ _id: new MongoClient.ObjectID(decoded.id) });
-    if (!user) {
-      return res.status(404).json({ error: "User not found." });
-    }
-
-    jwt.verify(token, user.secretKey, (err, verified) => {
-      if (err) return res.status(403).json({ error: "Invalid token." });
-      req.user = verified; // Attach the verified user info to the request
-      next();
-    });
-  } catch (err) {
-    console.error("Error verifying token:", err.message);
-    res.status(500).json({ error: "Failed to authenticate token." });
-  }
-}*/
 
 // Middleware
  // Start the server

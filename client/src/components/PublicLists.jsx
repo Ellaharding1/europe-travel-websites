@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { useAuth } from "../components/AuthContext";
+
 import { Box, Typography, Paper, Button, Collapse, Divider, TextField } from "@mui/material";
 
 const PublicLists = () => {
@@ -10,6 +12,7 @@ const PublicLists = () => {
   const [reviewState, setReviewState] = useState({}); // Track review form states for each list
   const getField = (field, fallback = "N/A") => field || fallback;
   const [expandedReviewListId, setExpandedReviewListId] = useState(null); // Tracks which list's review form is expanded
+  const { token } = useAuth();
 
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
@@ -53,11 +56,10 @@ const PublicLists = () => {
   const handleReviewSubmit = async (e, listId) => {
     e.preventDefault();
   
-    const token = localStorage.getItem("token"); // Get the token from localStorage
-  
+    const token = localStorage.getItem("token");
     if (!token) {
-      alert("You must log in to write a review."); // Show an alert if the user is not logged in
-      return; // Stop further execution
+      alert("You must log in to write a review.");
+      return;
     }
   
     const { rating, comment } = reviewState[listId] || {};
@@ -68,26 +70,27 @@ const PublicLists = () => {
     }
   
     try {
+      console.log("Submitting review with:", { listId, rating, comment });
+      console.log("Token being sent:", token);
+  
       const response = await axios.post(
         `${BACKEND_URL}/api/add-review`,
         { listId, rating, comment },
         {
           headers: {
-            Authorization: `Bearer ${token}`, // Include the token in the request header
+            Authorization: `Bearer ${token}`,
           },
         }
       );
   
       alert(response.data.message);
   
-      // Update the list with the new review
       setPublicLists((prevLists) =>
         prevLists.map((list) =>
           list._id === listId ? { ...list, ...response.data.updatedList } : list
         )
       );
   
-      // Clear the review state for this list
       setReviewState((prevState) => ({
         ...prevState,
         [listId]: { rating: "", comment: "" },
@@ -95,13 +98,24 @@ const PublicLists = () => {
     } catch (err) {
       console.error("Error adding review:", err.message);
   
-      if (err.response && err.response.status === 401) {
-        alert("You must log in to write a review."); // Handle unauthorized error
+      if (err.response) {
+        console.error("Error response data:", err.response.data);
+        console.error("Error response status:", err.response.status);
+  
+        if (err.response.status === 401) {
+          alert("You must log in to write a review.");
+        } else {
+          alert(`Failed to add review: ${err.response.data.error || "Unknown error"}`);
+        }
       } else {
-        alert("Failed to add review. Please try again."); // Handle other errors
+        console.error("Network error or no response from server:", err);
+        alert("Failed to add review. Please try again.");
       }
     }
   };
+  
+  
+  
 
   const handleInputChange = (listId, field, value) => {
     setReviewState((prevState) => ({

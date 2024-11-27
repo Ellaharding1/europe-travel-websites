@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import SearchDestination from "./SearchDestination";
 import PublicLists from "./PublicLists";
+import { useAuth } from "./AuthContext";
 
 
 const LoggedIn = () => {
@@ -14,7 +15,7 @@ const LoggedIn = () => {
 
 
 
-  const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem("token"));
+  //sconst [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem("token"));
   const [isEditing, setIsEditing] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false); // State for toggling the "Your Travel Lists" section
@@ -34,6 +35,9 @@ const LoggedIn = () => {
 
   const [selectedList, setSelectedList] = useState(null);
   const [selectedListId, setSelectedListId] = useState(null);
+
+  const { token, isLoggedIn } = useAuth(); // Get the login state and token
+
 
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
@@ -354,7 +358,7 @@ const handleDescriptionEdit = async (listId, newDescription) => {
                 borderRadius: "5px",
                 zIndex: 1000,
               }}
-            >
+            >        
               {isCollapsed ? ">" : "<"}
             </button>
   
@@ -735,6 +739,5 @@ const handleDescriptionEdit = async (listId, newDescription) => {
     </div>
   );
 };
-  
 
 export default LoggedIn;

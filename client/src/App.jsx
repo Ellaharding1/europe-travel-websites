@@ -10,6 +10,9 @@ import theme from "./theme"; // Import the custom theme
 import logo from "../img/logo.png";
 import LoggedIn from "./components/LoggedIn";
 import PublicLists from "./components/PublicLists";
+import { AuthProvider } from "../src/components/AuthContext";
+
+
 
 // HomePage component with proper centering
 function HomePage() {
@@ -87,58 +90,50 @@ function HomePage() {
 }
 
 // Main App component
+
 function App() {
   return (
-    
-    <ThemeProvider theme={theme}>
-      <Router>
-        <div>
-          {/* AppBar with logo and navigation links */}
-          <AppBar position="fixed">
-            <Toolbar>
-              <img src={logo} alt="Travel System Logo" style={{ height: "40px", marginRight: "10px" }} />
-              <Typography variant="h6" style={{ flexGrow: 1 }}>
-                Travel System
-              </Typography>
-              <Button color="inherit" component={Link} to="/">
-                Home
-              </Button>
-              <Button color="inherit" component={Link} to="/register">
-                Register
-              </Button>
-              <Button color="inherit" component={Link} to="/login">
-                Login
-              </Button>
-              <Button color="inherit" component={Link} to="/search-destination">
-                Search Destination
-              </Button>
-              <Button color="inherit" component={Link} to="/public-lists">
-                Public Lists
-              </Button>
-
-
-            </Toolbar>
-          </AppBar>
-
-          {/* Spacer to avoid overlapping with the AppBar */}
-          <Toolbar />
-
-          {/* Routes for navigation */}
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/verify-email" element={<EmailVerification />} />
-            <Route path="/search-destination" element={<SearchDestination />} />
-            <Route path="/loggedIn" element={<LoggedIn />} /> {/* New route */}
-            <Route path="/public-lists" element={<PublicLists />} />
-          </Routes>
-
-
-
-        </div>
-      </Router>
-    </ThemeProvider>
+    <AuthProvider>
+      <ThemeProvider theme={theme}>
+        <Router>
+          <div>
+            <AppBar position="fixed">
+              <Toolbar>
+                <img src={logo} alt="Travel System Logo" style={{ height: "40px", marginRight: "10px" }} />
+                <Typography variant="h6" style={{ flexGrow: 1 }}>
+                  Travel System
+                </Typography>
+                <Button color="inherit" component={Link} to="/">
+                  Home
+                </Button>
+                <Button color="inherit" component={Link} to="/register">
+                  Register
+                </Button>
+                <Button color="inherit" component={Link} to="/login">
+                  Login
+                </Button>
+                <Button color="inherit" component={Link} to="/search-destination">
+                  Search Destination
+                </Button>
+                <Button color="inherit" component={Link} to="/public-lists">
+                  Public Lists
+                </Button>
+              </Toolbar>
+            </AppBar>
+            <Toolbar />
+            <Routes>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/verify-email" element={<EmailVerification />} />
+              <Route path="/search-destination" element={<SearchDestination />} />
+              <Route path="/loggedIn" element={<LoggedIn />} />
+              <Route path="/public-lists" element={<PublicLists />} />
+            </Routes>
+          </div>
+        </Router>
+      </ThemeProvider>
+    </AuthProvider>
   );
 }
 
