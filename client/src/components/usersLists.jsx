@@ -4,7 +4,7 @@ import SearchDestination from "./SearchDestination";
 import PublicLists from "./PublicLists";
 
 
-const LoggedIn = () => {
+const usersLists = () => {
   const [editName, setEditName] = useState("");
   const [editVisibility, setEditVisibility] = useState("private");
   const [expandedListId, setExpandedListId] = useState(null);
@@ -737,4 +737,4 @@ const handleDescriptionEdit = async (listId, newDescription) => {
 };
   
 
-export default LoggedIn;
+export default usersLists;

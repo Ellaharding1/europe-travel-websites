@@ -200,7 +200,6 @@ const client = new MongoClient(DATABASE_URI);
       }
     }
   });
-  
   // Login User
   app.post("/login", async (req, res) => {
     const { email, password } = req.body;
@@ -230,7 +229,6 @@ const client = new MongoClient(DATABASE_URI);
       res.status(500).json({ error: "Failed to log in", details: err.message });
     }
   });
-
   app.get("/destinations", async (req, res) => {
     try {
       const destinations = await db.collection("destinations").find().toArray(); // Fetch all destinations
@@ -239,7 +237,6 @@ const client = new MongoClient(DATABASE_URI);
       res.status(500).send("Error fetching destinations: " + err.message);
     }
   });
-
 // Search for destinations
 // Backend: Search for destinations
 app.get("/search-destinations", async (req, res) => {
@@ -335,8 +332,6 @@ app.post("/api/createList", async (req, res) => {
     res.status(500).json({ error: "Failed to create list: " + err.message });
   }
 });
-
-
 app.post("/api/add-review", async (req, res) => {
   try {
     const { listId, rating, comment } = req.body;
@@ -395,7 +390,6 @@ app.post("/api/add-review", async (req, res) => {
     res.status(500).json({ error: "Failed to add review." });
   }
 });
-
 // Update list selection status
 app.patch("/api/select-list", async (req, res) => {
   try {
@@ -454,7 +448,6 @@ app.get("/api/get-selected-list", async (req, res) => {
     res.status(500).json({ error: "Internal server error." });
   }
 });
-
 app.patch("/api/deselect-list", async (req, res) => {
 
   try {
@@ -480,7 +473,6 @@ app.patch("/api/deselect-list", async (req, res) => {
     res.status(500).json({ error: "Internal server error." });
   }
 });
-
 app.get("/api/getLists", async (req, res) => {
   try {
     const email = req.query.email; // Extract email from query parameters
@@ -529,7 +521,6 @@ app.get("/api/getLists", async (req, res) => {
     res.status(500).json({ error: "Error fetching lists: " + err.message });
   }
 });
-
 app.patch("/api/change-visibility", async (req, res) => {
   try {
     const { listId, visibility } = req.body;
@@ -557,7 +548,6 @@ app.patch("/api/change-visibility", async (req, res) => {
     res.status(500).json({ error: "Failed to change visibility: " + err.message });
   }
 });
-
 app.delete("/api/deleteList", async (req, res) => {
   try {
     const { listId } = req.body; // Expecting `listId` in the request body
@@ -578,8 +568,6 @@ app.delete("/api/deleteList", async (req, res) => {
     res.status(500).json({ error: "Failed to delete list: " + err.message });
   }
 });
-
-
 app.patch("/api/editList", async (req, res) => {
   try {
     const { listId, listName, description, visibility } = req.body;
@@ -614,7 +602,6 @@ app.patch("/api/editList", async (req, res) => {
     res.status(500).json({ error: "Failed to update list: " + err.message });
   }
 });
-
 // Update List Description
 app.patch("/api/editDescription", async (req, res) => {
   try {
@@ -646,7 +633,6 @@ app.patch("/api/editDescription", async (req, res) => {
     res.status(500).json({ error: "Internal server error." });
   }
 });
-
 app.patch("/api/remove-destination", async (req, res) => {
   try {
     const { listId, destinationId } = req.body;
