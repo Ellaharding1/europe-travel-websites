@@ -201,7 +201,7 @@ const client = new MongoClient(DATABASE_URI);
     try {
       const limit = parseInt(req.query.limit) || 10;
   
-      // Fetch public lists
+      // Fetch public lists with essential fields
       const publicLists = await db.collection("lists")
         .find({ visibility: "public" })
         .sort({ lastEdited: -1 })
@@ -212,22 +212,30 @@ const client = new MongoClient(DATABASE_URI);
         return res.status(200).json({ lists: [] }); // Gracefully handle no lists
       }
   
-      // Fetch destinations for each list
-      const listsWithDestinations = await Promise.all(
+      // Fetch destinations and calculate average rating
+      const listsWithDetails = await Promise.all(
         publicLists.map(async (list) => {
           const destinations = await db.collection("destinations")
             .find({ id: { $in: list.destinationIDs || [] } }) // Ensure destinationIDs is valid
             .toArray();
   
+          // Calculate average rating
+          const reviews = list.reviews || [];
+          const averageRating =
+            reviews.length > 0
+              ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
+              : null;
+  
           return {
             ...list,
             destinations,
+            reviews,
+            averageRating, // Include calculated average rating
           };
         })
       );
   
-      // Send a single response
-      res.status(200).json({ lists: listsWithDestinations });
+      res.status(200).json({ lists: listsWithDetails });
     } catch (err) {
       console.error("Error fetching public lists:", err.message);
   
@@ -236,44 +244,43 @@ const client = new MongoClient(DATABASE_URI);
       }
     }
   });
+  
+  
   // Login User
   app.post("/api/login", async (req, res) => {
     const { email, password } = req.body;
   
     try {
-      // Fetch user from the database
-      const user = await usersCollection.findOne({ email });
+      const user = await db.collection("users").findOne({ email });
       if (!user) {
         return res.status(404).json({ error: "User not found." });
       }
   
-      // Verify password
       const isMatch = await bcrypt.compare(password, user.password);
       if (!isMatch) {
-        return res.status(401).json({ error: "Invalid credentials." });
+        return res.status(401).json({ error: "Invalid email or password." });
       }
   
-      // Check if the user is disabled or not verified
+      if (!user.isVerified) {
+        return res.status(403).json({ error: "Please verify your email before logging in." });
+      }
+  
       if (user.isDisabled) {
         return res.status(403).json({ error: "Account is disabled." });
       }
-      if (!user.isVerified) {
-        return res.status(403).json({ error: "Account is not verified." });
-      }
   
-      // Generate a token
-      const token = jwt.sign(
-        { id: user._id, email: user.email },
-        user.secretKey, // Use user-specific secretKey
-        { expiresIn: "1h" }
-      );
+      // Generate a new token using the user's secretKey
+      const token = jwt.sign({ id: user._id, email: user.email }, user.secretKey, {
+        expiresIn: "1h",
+      });
   
-      res.status(200).json({ token, nickname: user.nickname });
+      res.status(200).json({ message: "Login successful", token });
     } catch (err) {
       console.error("Login error:", err.message);
-      res.status(500).json({ error: "Internal server error." });
+      res.status(500).json({ error: "Failed to log in." });
     }
   });
+  
 
   
   app.get("/destinations", async (req, res) => {
@@ -381,26 +388,26 @@ app.post("/api/createList", async (req, res) => {
 });
 
 app.post("/api/add-review", authenticateToken, async (req, res) => {
-  const { listId, rating, comment } = req.body;
-
-  // Validate listId
-  if (!ObjectId.isValid(listId)) {
-    return res.status(400).json({ error: "Invalid list ID" });
-  }
-
-  // Validate rating and comment using Joi or custom validation
-  const reviewSchema = Joi.object({
-    rating: Joi.number().integer().min(1).max(5).required(),
-    comment: Joi.string().optional(),
-  });
-
-  const { error } = reviewSchema.validate({ rating, comment });
-  if (error) {
-    return res.status(400).json({ error: error.details[0].message });
-  }
-
   try {
-    // Check if the list exists and is public
+    console.log("User from token:", req.user); // Ensure the user is attached
+    console.log("Request body:", req.body); // Log the incoming request data
+
+    const { listId, rating, comment } = req.body;
+
+    if (!ObjectId.isValid(listId)) {
+      return res.status(400).json({ error: "Invalid list ID" });
+    }
+
+    const reviewSchema = Joi.object({
+      rating: Joi.number().integer().min(1).max(5).required(),
+      comment: Joi.string().optional(),
+    });
+
+    const { error } = reviewSchema.validate({ rating, comment });
+    if (error) {
+      return res.status(400).json({ error: error.details[0].message });
+    }
+
     const list = await db.collection("lists").findOne({
       _id: new ObjectId(listId),
       visibility: "public",
@@ -410,20 +417,20 @@ app.post("/api/add-review", authenticateToken, async (req, res) => {
       return res.status(404).json({ error: "Public list not found" });
     }
 
-    // Create the review object
     const review = {
       _id: new ObjectId(),
-      userId: new ObjectId(req.user.id), // User ID from token
+      userId: new ObjectId(req.user.id),
       rating,
-      comment: comment || "", // Default to an empty string if no comment is provided
+      comment: comment || "",
       createdAt: new Date(),
     };
 
-    // Add the review to the list
-    await db.collection("lists").updateOne(
+    const result = await db.collection("lists").updateOne(
       { _id: new ObjectId(listId) },
       { $push: { reviews: review } }
     );
+
+    console.log("Review added successfully:", result);
 
     res.status(201).json({ message: "Review added successfully" });
   } catch (error) {
@@ -431,6 +438,7 @@ app.post("/api/add-review", authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Failed to add review" });
   }
 });
+
 
 
 // Update list selection status
@@ -764,32 +772,46 @@ app.get("/api/test-token", authenticateToken, (req, res) => {
 });
 
 
-
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
 
-// Helper function to calculate the new average rating
-function calculateNewAverage(currentAverage, currentCount, newRating) {
-  return ((currentAverage * currentCount) + newRating) / (currentCount + 1);
-}
-
 // Middleware for authentication
 async function authenticateToken(req, res, next) {
   const token = req.headers.authorization?.split(" ")[1];
+
   if (!token) {
     return res.status(401).json({ error: "Access denied. No token provided." });
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.TOKEN_SECRET);
-    req.user = decoded; // Attach user information to the request
-    next();
+    // Decode the token without verifying to extract user ID
+    const decoded = jwt.decode(token);
+    if (!decoded?.id) {
+      return res.status(403).json({ error: "Invalid token payload." });
+    }
+
+    // Fetch the user from the database
+    const user = await db.collection("users").findOne({ _id: new ObjectId(decoded.id) });
+    if (!user) {
+      return res.status(404).json({ error: "User not found." });
+    }
+
+    // Verify the token using the user's specific secret key
+    jwt.verify(token, user.secretKey, (err, verified) => {
+      if (err) {
+        return res.status(403).json({ error: "Invalid or expired token." });
+      }
+      req.user = verified; // Attach user info to the request
+      next();
+    });
   } catch (err) {
-    console.error("Token verification failed:", err.message);
-    return res.status(403).json({ error: "Invalid or expired token." });
+    console.error("Token verification error:", err.message);
+    res.status(500).json({ error: "Failed to authenticate token." });
   }
 }
+
+
 
 
 

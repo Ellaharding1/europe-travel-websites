@@ -63,7 +63,6 @@ const PublicLists = () => {
     }
   
     const { rating, comment } = reviewState[listId] || {};
-  
     if (!rating || rating < 1 || rating > 5) {
       alert("Rating must be between 1 and 5.");
       return;
@@ -83,6 +82,7 @@ const PublicLists = () => {
         }
       );
   
+      console.log("Backend response:", response.data);
       alert(response.data.message);
   
       setPublicLists((prevLists) =>
@@ -96,17 +96,11 @@ const PublicLists = () => {
         [listId]: { rating: "", comment: "" },
       }));
     } catch (err) {
-      console.error("Error adding review:", err.message);
+      console.error("Error adding review:", err);
   
       if (err.response) {
         console.error("Error response data:", err.response.data);
-        console.error("Error response status:", err.response.status);
-  
-        if (err.response.status === 401) {
-          alert("You must log in to write a review.");
-        } else {
-          alert(`Failed to add review: ${err.response.data.error || "Unknown error"}`);
-        }
+        alert(`Failed to add review: ${err.response.data.error || "Unknown error"}`);
       } else {
         console.error("Network error or no response from server:", err);
         alert("Failed to add review. Please try again.");
@@ -114,9 +108,6 @@ const PublicLists = () => {
     }
   };
   
-  
-  
-
   const handleInputChange = (listId, field, value) => {
     setReviewState((prevState) => ({
       ...prevState,
