@@ -7,6 +7,8 @@ const nodemailer = require("nodemailer");
 const validator = require("validator");
 const Joi = require('joi');
 
+
+
 require("dotenv").config(); // Load environment variables
 const FRONTEND_URL = process.env.FRONTEND_URL;
 
@@ -417,27 +419,49 @@ app.post("/api/add-review", authenticateToken, async (req, res) => {
       return res.status(404).json({ error: "Public list not found" });
     }
 
+    // Create the review object
     const review = {
       _id: new ObjectId(),
       userId: new ObjectId(req.user.id),
-      rating,
+      rating: Number(rating), // Ensure rating is stored as a number
       comment: comment || "",
       createdAt: new Date(),
     };
 
+    // Add the review to the list
     const result = await db.collection("lists").updateOne(
       { _id: new ObjectId(listId) },
       { $push: { reviews: review } }
     );
 
+    if (!result.modifiedCount) {
+      return res.status(500).json({ error: "Failed to add review" });
+    }
+
+    // Recalculate and update the average rating
+    const updatedList = await db.collection("lists").findOne({ _id: new ObjectId(listId) });
+    const reviews = updatedList.reviews || [];
+    const totalRatings = reviews.reduce((sum, r) => sum + Number(r.rating || 0), 0);
+    const averageRating =
+      reviews.length > 0 ? parseFloat((totalRatings / reviews.length).toFixed(2)) : null;
+
+    // Update the averageRating in the database
+    await db.collection("lists").updateOne(
+      { _id: new ObjectId(listId) },
+      { $set: { averageRating: averageRating || 0 } } // Default to 0 if no reviews exist
+    );
+
     console.log("Review added successfully:", result);
 
-    res.status(201).json({ message: "Review added successfully" });
+    res.status(201).json({ message: "Review added successfully", updatedList });
   } catch (error) {
     console.error("Error in add-review:", error.message);
     res.status(500).json({ error: "Failed to add review" });
   }
 });
+
+
+
 
 
 

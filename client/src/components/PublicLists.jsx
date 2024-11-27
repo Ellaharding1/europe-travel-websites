@@ -187,8 +187,12 @@ const PublicLists = () => {
                     <strong>Destinations:</strong> {list.destinationCount}
                   </Typography>
                   <Typography variant="body2" color="textSecondary">
-                  <strong>Average Rating:</strong> {list.averageRating ? list.averageRating.toFixed(2) : "No reviews yet"}
+                    <strong>Average Rating:</strong>{" "}
+                    {typeof list.averageRating === "number"
+                      ? list.averageRating.toFixed(2)
+                      : "No reviews yet"}
                   </Typography>
+
                   
                   </Box>
                   <Button
