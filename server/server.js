@@ -8,6 +8,29 @@ const validator = require("validator");
 const Joi = require('joi');
 
 
+// Middleware for authenticating admin
+const authenticateAdmin = async (req, res, next) => {
+  const token = req.headers.authorization?.split(" ")[1];
+  if (!token) {
+    return res.status(401).json({ error: "Unauthorized: No token provided" });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.TOKEN_SECRET); // Use the secret from .env
+    const admin = await db.collection("admins").findOne({ _id: new ObjectId(decoded.id) });
+    if (!admin) {
+      return res.status(403).json({ error: "Forbidden: Admin not found" });
+    }
+
+    req.admin = admin; // Attach admin details to the request
+    next(); // Proceed to the next middleware or route handler
+  } catch (err) {
+    console.error("Error in authenticateAdmin:", err.message);
+    res.status(403).json({ error: "Invalid token" });
+  }
+};
+
+
 
 require("dotenv").config(); // Load environment variables
 const FRONTEND_URL = process.env.FRONTEND_URL;
@@ -803,64 +826,96 @@ app.get("/api/test-token", authenticateToken, (req, res) => {
 });
 
 
-app.patch("/api/admin/grant", authenticateToken, async (req, res) => {
+
+// Grant admin privileges
+app.patch("/api/admin/grant", authenticateAdmin, async (req, res) => {
+  const { username } = req.body;
+
   try {
-    const { username } = req.body;
-    if (!req.user.isAdmin) {
-      return res.status(403).json({ error: "Access denied." });
-    }
     const result = await db.collection("users").updateOne(
       { username },
       { $set: { isAdmin: true } }
     );
-    if (!result.matchedCount) {
-      return res.status(404).json({ error: "User not found." });
-    }
-    res.status(200).json({ message: `${username} is now an admin.` });
+    if (!result.modifiedCount) return res.status(404).json({ error: "User not found" });
+
+    res.status(200).json({ message: `${username} is now an admin` });
   } catch (err) {
-    res.status(500).json({ error: "Failed to grant admin privileges." });
+    console.error("Error granting admin privileges:", err.message);
+    res.status(500).json({ error: "Failed to grant admin privileges" });
   }
 });
 
 
-app.patch("/api/admin/review", authenticateToken, async (req, res) => {
+
+// Manage review visibility
+app.patch("/api/admin/review", authenticateAdmin, async (req, res) => {
+  const { reviewId, visibility } = req.body;
+
   try {
-    const { reviewId, visibility } = req.body;
-    if (!req.user.isAdmin) {
-      return res.status(403).json({ error: "Access denied." });
-    }
     const result = await db.collection("reviews").updateOne(
       { _id: new ObjectId(reviewId) },
       { $set: { visibility } }
     );
-    if (!result.matchedCount) {
-      return res.status(404).json({ error: "Review not found." });
-    }
-    res.status(200).json({ message: "Review visibility updated." });
+    if (!result.modifiedCount) return res.status(404).json({ error: "Review not found" });
+
+    res.status(200).json({ message: `Review visibility updated to ${visibility}` });
   } catch (err) {
-    res.status(500).json({ error: "Failed to update review visibility." });
+    console.error("Error updating review visibility:", err.message);
+    res.status(500).json({ error: "Failed to update review visibility" });
   }
 });
 
 
-app.patch("/api/admin/user", authenticateToken, async (req, res) => {
+
+// Update user status (activate/deactivate)
+app.patch("/api/admin/user", authenticateAdmin, async (req, res) => {
+  const { userId, status } = req.body;
+
   try {
-    const { userId, status } = req.body;
-    if (!req.user.isAdmin) {
-      return res.status(403).json({ error: "Access denied." });
-    }
     const result = await db.collection("users").updateOne(
       { _id: new ObjectId(userId) },
       { $set: { status } }
     );
-    if (!result.matchedCount) {
-      return res.status(404).json({ error: "User not found." });
-    }
-    res.status(200).json({ message: `User status updated to ${status}.` });
+    if (!result.modifiedCount) return res.status(404).json({ error: "User not found" });
+
+    res.status(200).json({ message: `User status updated to ${status}` });
   } catch (err) {
-    res.status(500).json({ error: "Failed to update user status." });
+    console.error("Error updating user status:", err.message);
+    res.status(500).json({ error: "Failed to update user status" });
   }
 });
+
+
+// Admin login route
+app.post("/api/admin/login", async (req, res) => {
+  const { username, password } = req.body;
+
+  try {
+    const admin = await db.collection("admins").findOne({ username });
+    if (!admin) return res.status(403).json({ error: "Invalid credentials" });
+
+    const isPasswordValid = await bcrypt.compare(password, admin.password);
+    if (!isPasswordValid) return res.status(403).json({ error: "Invalid credentials" });
+
+    const token = jwt.sign({ id: admin._id }, process.env.TOKEN_SECRET, { expiresIn: "1h" });
+    res.status(200).json({ message: "Login successful", token });
+  } catch (err) {
+    console.error("Admin login error:", err.message);
+    res.status(500).json({ error: "An error occurred during login" });
+  }
+});
+
+
+app.get("/api/admin/users", authenticateAdmin, async (req, res) => {
+  try {
+    const users = await db.collection("users").find({ isAdmin: { $ne: true } }).toArray();
+    res.status(200).json(users);
+  } catch (err) {
+    console.error("Error fetching users:", err.message);
+    res.status(500).json({ error: "Failed to fetch users" });
+  }
+});
+
 
 
 
@@ -905,6 +960,8 @@ async function authenticateToken(req, res, next) {
     res.status(500).json({ error: "Failed to authenticate token." });
   }
 }
+
+
 
 
 

@@ -2,6 +2,9 @@ import React, { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
+
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+
 const AdministratorLogin = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -10,13 +13,14 @@ const AdministratorLogin = () => {
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post("/api/admin/login", { username, password });
+      const response = await axios.post(`${BACKEND_URL}/api/admin/login`, { username, password });
       localStorage.setItem("token", response.data.token);
       navigate("/administrator");
     } catch (err) {
-      alert("Login failed: " + err.response.data.error);
+      alert("Login failed: " + err.response?.data?.error || "Server error");
     }
   };
+  
 
   return (
     <form onSubmit={handleLogin}>
