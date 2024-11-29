@@ -1,7 +1,10 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import { Box, Button, TextField, Typography } from "@mui/material";
+import { Box, Button, TextField, Typography,Toolbar } from "@mui/material";
+import HomeNavBar from "./HomeNavBar"; // Import the reusable navbar
+
+
 
 function Login() {
   const [formData, setFormData] = useState({ email: "", password: "" });
@@ -70,6 +73,8 @@ function Login() {
         paddingTop: "15vh", // Adjust top padding to move the form higher
       }}
     >
+      <HomeNavBar /> {/* Navigation bar */}
+      <Toolbar /> {/* Spacer for the fixed AppBar */}
       <Typography variant="h4" gutterBottom>
         Login
       </Typography>

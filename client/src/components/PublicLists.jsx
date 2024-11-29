@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useAuth } from "../components/AuthContext";
+import HomeNavBar from "./HomeNavBar"; // Import the reusable navbar
+
 
 import { Box, Typography, Button, Collapse, Card, CardContent, List, ListItem, ListItemText,Paper, Divider, TextField } from "@mui/material";
 
@@ -142,6 +144,8 @@ const PublicLists = () => {
         minHeight: "100vh",
       }}
     >
+              <HomeNavBar />
+
       <Typography
         variant="h4"
         align="center"

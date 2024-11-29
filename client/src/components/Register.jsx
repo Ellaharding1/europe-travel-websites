@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { Box, Button, TextField, Dialog, DialogTitle, DialogContent, DialogActions, Typography } from "@mui/material";
+import HomeNavBar from "./HomeNavBar"; // Import the reusable navbar
 
 function Register() {
   const [formData, setFormData] = useState({ email: "", password: "", nickname: "" });
@@ -69,6 +70,7 @@ function Register() {
         paddingTop: "10vh", // Adjust padding to move content further up
       }}
     >
+      <HomeNavBar />
       <Typography variant="h4" gutterBottom>
         Register
       </Typography>

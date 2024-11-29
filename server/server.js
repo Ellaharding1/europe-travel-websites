@@ -8,28 +8,6 @@ const validator = require("validator");
 const Joi = require('joi');
 
 
-// Middleware for authenticating admin
-const authenticateAdmin = async (req, res, next) => {
-  const token = req.headers.authorization?.split(" ")[1];
-  if (!token) {
-    return res.status(401).json({ error: "Unauthorized: No token provided" });
-  }
-
-  try {
-    const decoded = jwt.verify(token, process.env.TOKEN_SECRET); // Use the secret from .env
-    const admin = await db.collection("admins").findOne({ _id: new ObjectId(decoded.id) });
-    if (!admin) {
-      return res.status(403).json({ error: "Forbidden: Admin not found" });
-    }
-
-    req.admin = admin; // Attach admin details to the request
-    next(); // Proceed to the next middleware or route handler
-  } catch (err) {
-    console.error("Error in authenticateAdmin:", err.message);
-    res.status(403).json({ error: "Invalid token" });
-  }
-};
-
 
 
 require("dotenv").config(); // Load environment variables
@@ -71,6 +49,30 @@ const client = new MongoClient(DATABASE_URI);
     const usersCollection = db.collection("users");
     const listsCollection = db.collection("lists");
     const destinationsCollection = db.collection("destinations");
+
+
+    // Middleware for authenticating admin
+const authenticateAdmin = async (req, res, next) => {
+  const token = req.headers.authorization?.split(" ")[1];
+  if (!token) {
+    return res.status(401).json({ error: "Unauthorized: No token provided" });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.TOKEN_SECRET); // Use the secret from .env
+    const admin = await db.collection("admins").findOne({ _id: new ObjectId(decoded.id) });
+    if (!admin) {
+      return res.status(403).json({ error: "Forbidden: Admin not found" });
+    }
+
+    req.admin = admin; // Attach admin details to the request
+    next(); // Proceed to the next middleware or route handler
+  } catch (err) {
+    console.error("Error in authenticateAdmin:", err.message);
+    res.status(403).json({ error: "Invalid token" });
+  }
+};
+
 
     // Define routes here (example)
     app.get("/", (req, res) => {
@@ -865,27 +867,6 @@ app.patch("/api/admin/review", authenticateAdmin, async (req, res) => {
   }
 });
 
-
-
-// Update user status (activate/deactivate)
-app.patch("/api/admin/user", authenticateAdmin, async (req, res) => {
-  const { userId, status } = req.body;
-
-  try {
-    const result = await db.collection("users").updateOne(
-      { _id: new ObjectId(userId) },
-      { $set: { status } }
-    );
-    if (!result.modifiedCount) return res.status(404).json({ error: "User not found" });
-
-    res.status(200).json({ message: `User status updated to ${status}` });
-  } catch (err) {
-    console.error("Error updating user status:", err.message);
-    res.status(500).json({ error: "Failed to update user status" });
-  }
-});
-
-
 // Admin login route
 app.post("/api/admin/login", async (req, res) => {
   const { username, password } = req.body;
@@ -905,11 +886,10 @@ app.post("/api/admin/login", async (req, res) => {
   }
 });
 
-
 app.get("/api/admin/users", authenticateAdmin, async (req, res) => {
   try {
-    const users = await db.collection("users").find({ isAdmin: { $ne: true } }).toArray();
-    res.status(200).json(users);
+    const users = await db.collection("users").find({}).toArray(); // Fetch all users
+    res.status(200).json(users); // Send users as JSON response
   } catch (err) {
     console.error("Error fetching users:", err.message);
     res.status(500).json({ error: "Failed to fetch users" });
@@ -917,6 +897,42 @@ app.get("/api/admin/users", authenticateAdmin, async (req, res) => {
 });
 
 
+
+app.patch("/api/admin/user", authenticateAdmin, async (req, res) => {
+  const { userId, status } = req.body;
+  console.log("TESTTT")
+
+  if (!["active", "deactivated"].includes(status)) {
+    return res.status(400).json({ error: "Invalid status value" });
+  }
+
+  try {
+    const result = await db.collection("users").updateOne(
+      { _id: new ObjectId(userId) },
+      { $set: { status } }
+    );
+    if (!result.modifiedCount) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.status(200).json({ message: `User status updated to ${status}` });
+  } catch (err) {
+    console.error("Error updating user status:", err.message);
+    res.status(500).json({ error: "Failed to update user status" });
+  }
+});
+
+
+
+
+app.get("/api/admin/status", authenticateAdmin, async (req, res) => {
+  try {
+    res.status(200).json({ isAdmin: true });
+  } catch (err) {
+    console.error("Error fetching admin status:", err.message);
+    res.status(500).json({ error: "Failed to fetch admin status" });
+  }
+});
 
 
 

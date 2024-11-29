@@ -3,6 +3,8 @@ import axios from "axios";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import Fuse from "fuse.js";
+import HomeNavBar from "./HomeNavBar"; // Import the reusable navbar
+
 
 const SearchDestination = ({ selectedList, selectedListId, setSelectedList, userEmail }) => {
     const [field, setField] = useState("region");
@@ -183,8 +185,11 @@ const SearchDestination = ({ selectedList, selectedListId, setSelectedList, user
         minHeight: "100vh", // Ensures the initial viewport height is covered
      }}
     >
-      <h1 style={{ textAlign: "center", color: "#fff" }}>Search Destinations</h1>
-      <div
+        <HomeNavBar />
+
+        <h1 style={{ textAlign: "center", color: "#fff", marginTop: "70px" }}>
+          Search Destinations
+        </h1>      <div
         style={{
           display: "flex",
           justifyContent: "center",

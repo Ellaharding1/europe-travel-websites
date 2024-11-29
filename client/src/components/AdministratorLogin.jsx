@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import HomeNavBar from "./HomeNavBar"; // Import the reusable navbar
+
 
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
@@ -23,7 +25,10 @@ const AdministratorLogin = () => {
   
 
   return (
+    
     <form onSubmit={handleLogin}>
+                      <HomeNavBar />
+
       <h2>Admin Login</h2>
       <input
         type="text"

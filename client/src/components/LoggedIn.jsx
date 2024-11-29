@@ -3,6 +3,8 @@ import axios from "axios";
 import SearchDestination from "./SearchDestination";
 import PublicLists from "./PublicLists";
 import { useAuth } from "./AuthContext";
+import HomeNavBar from "./HomeNavBar"; // Import the reusable navbar
+
 
 
 const LoggedIn = () => {
@@ -255,6 +257,7 @@ const handleDescriptionEdit = async (listId, newDescription) => {
         overflow: "hidden",
       }}
     >
+      
 
       {/* Public Lists (Left Section) */}
     <div
@@ -365,6 +368,7 @@ const handleDescriptionEdit = async (listId, newDescription) => {
 {/* Right Section */}
 <div
         style={{
+          marginTop: "70px",
           width: isCollapsed ? "5%" : "25%",
           padding: isCollapsed ? "10px" : "20px",
           overflowY: "auto",
