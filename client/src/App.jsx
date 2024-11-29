@@ -11,8 +11,8 @@ import logo from "../img/logo.png";
 import LoggedIn from "./components/LoggedIn";
 import PublicLists from "./components/PublicLists";
 import { AuthProvider } from "../src/components/AuthContext";
-
-
+import Administrator from "./components/Administrator";
+import AdministratorLogin from "./components/AdministratorLogin";
 
 // HomePage component with proper centering
 function HomePage() {
@@ -74,15 +74,20 @@ function HomePage() {
     <Button
       variant="contained"
       color="primary"
+      style={{ marginRight: "10px" }}
       component={Link}
       to="/public-lists"
     >
       Public Lists
     </Button>
-
-
-
-
+    <Button
+      variant="contained"
+      color="primary"
+      component={Link}
+      to="/AdministratorLogin"
+    >
+      Admin Login
+    </Button>
   </Box>
 </Box>
 
@@ -118,6 +123,9 @@ function App() {
                 <Button color="inherit" component={Link} to="/public-lists">
                   Public Lists
                 </Button>
+                <Button color="inherit" component={Link} to="/AdministratorLogin">
+                  AdministratorLogin
+                </Button>
               </Toolbar>
             </AppBar>
             <Toolbar />
@@ -129,6 +137,9 @@ function App() {
               <Route path="/search-destination" element={<SearchDestination />} />
               <Route path="/loggedIn" element={<LoggedIn />} />
               <Route path="/public-lists" element={<PublicLists />} />
+              <Route path="/Administrator" element={<Administrator />} />
+              <Route path="/AdministratorLogin" element={<AdministratorLogin />} />
+
             </Routes>
           </div>
         </Router>

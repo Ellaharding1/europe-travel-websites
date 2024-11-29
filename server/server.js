@@ -400,6 +400,7 @@ app.post("/api/add-review", authenticateToken, async (req, res) => {
       return res.status(400).json({ error: "Invalid list ID" });
     }
 
+    // Validate rating and comment
     const reviewSchema = Joi.object({
       rating: Joi.number().integer().min(1).max(5).required(),
       comment: Joi.string().optional(),
@@ -410,6 +411,7 @@ app.post("/api/add-review", authenticateToken, async (req, res) => {
       return res.status(400).json({ error: error.details[0].message });
     }
 
+    // Fetch the list
     const list = await db.collection("lists").findOne({
       _id: new ObjectId(listId),
       visibility: "public",
@@ -419,13 +421,20 @@ app.post("/api/add-review", authenticateToken, async (req, res) => {
       return res.status(404).json({ error: "Public list not found" });
     }
 
+    // Fetch the user details for the username
+    const user = await db.collection("users").findOne({ _id: new ObjectId(req.user.id) });
+    if (!user) {
+      return res.status(404).json({ error: "User not found." });
+    }
+
     // Create the review object
     const review = {
       _id: new ObjectId(),
-      userId: new ObjectId(req.user.id),
+      userId: req.user.id,
+      username: user.nickname, // Add the user's nickname
       rating: Number(rating), // Ensure rating is stored as a number
       comment: comment || "",
-      createdAt: new Date(),
+      createdAt: new Date(), // Store the creation date
     };
 
     // Add the review to the list
@@ -435,20 +444,22 @@ app.post("/api/add-review", authenticateToken, async (req, res) => {
     );
 
     if (!result.modifiedCount) {
-      return res.status(500).json({ error: "Failed to add review" });
+      return res.status(500).json({ error: "Failed to add review." });
     }
 
-    // Recalculate and update the average rating
+    // Fetch the updated list to recalculate the average rating
     const updatedList = await db.collection("lists").findOne({ _id: new ObjectId(listId) });
+
+    // Calculate the average rating
     const reviews = updatedList.reviews || [];
     const totalRatings = reviews.reduce((sum, r) => sum + Number(r.rating || 0), 0);
     const averageRating =
-      reviews.length > 0 ? parseFloat((totalRatings / reviews.length).toFixed(2)) : null;
+      reviews.length > 0 ? parseFloat((totalRatings / reviews.length).toFixed(2)) : 0;
 
-    // Update the averageRating in the database
+    // Update the averageRating in the list
     await db.collection("lists").updateOne(
       { _id: new ObjectId(listId) },
-      { $set: { averageRating: averageRating || 0 } } // Default to 0 if no reviews exist
+      { $set: { averageRating } }
     );
 
     console.log("Review added successfully:", result);
@@ -456,13 +467,9 @@ app.post("/api/add-review", authenticateToken, async (req, res) => {
     res.status(201).json({ message: "Review added successfully", updatedList });
   } catch (error) {
     console.error("Error in add-review:", error.message);
-    res.status(500).json({ error: "Failed to add review" });
+    res.status(500).json({ error: "Failed to add review." });
   }
 });
-
-
-
-
 
 
 // Update list selection status
@@ -796,6 +803,70 @@ app.get("/api/test-token", authenticateToken, (req, res) => {
 });
 
 
+app.patch("/api/admin/grant", authenticateToken, async (req, res) => {
+  try {
+    const { username } = req.body;
+    if (!req.user.isAdmin) {
+      return res.status(403).json({ error: "Access denied." });
+    }
+    const result = await db.collection("users").updateOne(
+      { username },
+      { $set: { isAdmin: true } }
+    );
+    if (!result.matchedCount) {
+      return res.status(404).json({ error: "User not found." });
+    }
+    res.status(200).json({ message: `${username} is now an admin.` });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to grant admin privileges." });
+  }
+});
+
+
+app.patch("/api/admin/review", authenticateToken, async (req, res) => {
+  try {
+    const { reviewId, visibility } = req.body;
+    if (!req.user.isAdmin) {
+      return res.status(403).json({ error: "Access denied." });
+    }
+    const result = await db.collection("reviews").updateOne(
+      { _id: new ObjectId(reviewId) },
+      { $set: { visibility } }
+    );
+    if (!result.matchedCount) {
+      return res.status(404).json({ error: "Review not found." });
+    }
+    res.status(200).json({ message: "Review visibility updated." });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to update review visibility." });
+  }
+});
+
+
+app.patch("/api/admin/user", authenticateToken, async (req, res) => {
+  try {
+    const { userId, status } = req.body;
+    if (!req.user.isAdmin) {
+      return res.status(403).json({ error: "Access denied." });
+    }
+    const result = await db.collection("users").updateOne(
+      { _id: new ObjectId(userId) },
+      { $set: { status } }
+    );
+    if (!result.matchedCount) {
+      return res.status(404).json({ error: "User not found." });
+    }
+    res.status(200).json({ message: `User status updated to ${status}.` });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to update user status." });
+  }
+});
+
+
+
+
+
+
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
@@ -834,8 +905,6 @@ async function authenticateToken(req, res, next) {
     res.status(500).json({ error: "Failed to authenticate token." });
   }
 }
-
-
 
 
 

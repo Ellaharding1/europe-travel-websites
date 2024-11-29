@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useAuth } from "../components/AuthContext";
 
-import { Box, Typography, Paper, Button, Collapse, Divider, TextField } from "@mui/material";
+import { Box, Typography, Button, Collapse, Card, CardContent, List, ListItem, ListItemText,Paper, Divider, TextField } from "@mui/material";
 
 const PublicLists = () => {
   const [publicLists, setPublicLists] = useState([]);
@@ -13,6 +13,9 @@ const PublicLists = () => {
   const getField = (field, fallback = "N/A") => field || fallback;
   const [expandedReviewListId, setExpandedReviewListId] = useState(null); // Tracks which list's review form is expanded
   const { token } = useAuth();
+  const [lists, setLists] = useState([]);
+
+
 
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
@@ -63,8 +66,19 @@ const PublicLists = () => {
     }
   
     const { rating, comment } = reviewState[listId] || {};
+  
     if (!rating || rating < 1 || rating > 5) {
       alert("Rating must be between 1 and 5.");
+      return;
+    }
+  
+    // Show confirmation dialog
+    const isConfirmed = window.confirm(
+      `Are you sure you want to submit this review? \n\nRating: ${rating}\nComment: ${comment || "No comment"}`
+    );
+  
+    if (!isConfirmed) {
+      // If the user cancels the confirmation dialog
       return;
     }
   
@@ -82,7 +96,6 @@ const PublicLists = () => {
         }
       );
   
-      console.log("Backend response:", response.data);
       alert(response.data.message);
   
       setPublicLists((prevLists) =>
@@ -107,6 +120,7 @@ const PublicLists = () => {
       }
     }
   };
+  
   
   const handleInputChange = (listId, field, value) => {
     setReviewState((prevState) => ({
@@ -193,7 +207,37 @@ const PublicLists = () => {
                       : "No reviews yet"}
                   </Typography>
 
-                  
+                  {/* Display Reviews */}
+                  {list.reviews && list.reviews.length > 0 ? (
+  <>
+    <Typography variant="body2" sx={{ marginTop: "10px" }}>
+      <strong>Reviews:</strong>
+    </Typography>
+    {list.reviews.map((review, index) => (
+      <Box
+        key={index}
+        sx={{
+          marginBottom: "10px",
+          padding: "10px",
+          backgroundColor: "rgba(240, 240, 240, 0.9)",
+          borderRadius: "8px",
+        }}
+      >
+        <Typography variant="body2">
+          <strong>{review.username}:</strong> {review.comment}
+        </Typography>
+        <Typography variant="body2" color="textSecondary">
+          Rating: {review.rating} / 5
+        </Typography>
+      </Box>
+    ))}
+  </>
+) : (
+  <Typography variant="body2" sx={{ marginTop: "10px", color: "gray" }}>
+    No reviews yet.
+  </Typography>
+)}
+
                   </Box>
                   <Button
                   variant="contained"
