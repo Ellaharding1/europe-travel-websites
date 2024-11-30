@@ -320,14 +320,6 @@ const client = new MongoClient(DATABASE_URI);
     }
   });
   
-  
-  
-  
-  
-  
-  
-
-  
   app.get("/destinations", async (req, res) => {
     try {
       const destinations = await db.collection("destinations").find().toArray(); // Fetch all destinations
@@ -507,9 +499,6 @@ app.post("/api/add-review", authenticateToken, async (req, res) => {
   }
 });
 
-
-
-
 // Update list selection status
 app.patch("/api/select-list", async (req, res) => {
   try {
@@ -593,41 +582,38 @@ app.patch("/api/deselect-list", async (req, res) => {
     res.status(500).json({ error: "Internal server error." });
   }
 });
-app.get("/api/getLists", async (req, res) => {
+app.get("/api/getLists", authenticateToken, async (req, res) => {
   try {
-    const email = req.query.email; // Extract email from query parameters
+    const email = req.user.email; // Extract the email from the authenticated user's token
 
     if (!email) {
-      return res.status(400).json({ error: "Email is required." });
+      return res.status(400).json({ error: "Invalid user or email not found in token." });
     }
 
-    // Fetch the user's lists by email
+    // Fetch the user's lists by their email
     const lists = await db.collection("lists").find({ email }).toArray();
 
     if (!lists || lists.length === 0) {
-      return res.status(200).json({ lists: [], selectedList: null }); // Return an empty list if none are found
+      return res.status(200).json({ lists: [], selectedList: null });
     }
 
     // Collect all destination IDs from the lists
     const destinationIds = lists.flatMap((list) => list.destinationIDs || []);
-    const uniqueDestinationIds = [...new Set(destinationIds)]; // Remove duplicates
+    const uniqueDestinationIds = [...new Set(destinationIds)];
 
-    // Fetch the matching destinations from the database
+    // Fetch destinations related to the user's lists
     const destinations = await db
       .collection("destinations")
-      .find({ id: { $in: uniqueDestinationIds } }) // Match the `id` field
+      .find({ id: { $in: uniqueDestinationIds } })
       .toArray();
 
-    // Map destination IDs to their details
     const destinationMap = destinations.reduce((map, destination) => {
-      map[destination.id] = destination; // Use the `id` as the key
+      map[destination.id] = destination;
       return map;
     }, {});
 
-    // Find the currently selected list
     const selectedList = lists.find((list) => list.selected) || null;
 
-    // Attach destination details to each list
     const updatedLists = lists.map((list) => ({
       ...list,
       destinationDetails: (list.destinationIDs || []).map(
@@ -637,10 +623,12 @@ app.get("/api/getLists", async (req, res) => {
 
     res.status(200).json({ lists: updatedLists, selectedList: selectedList?.listName || null });
   } catch (err) {
-    console.error("Error fetching lists:", err.message);
-    res.status(500).json({ error: "Error fetching lists: " + err.message });
+    console.error("Error fetching user lists:", err.message);
+    res.status(500).json({ error: "Error fetching lists." });
   }
 });
+
+
 app.patch("/api/change-visibility", async (req, res) => {
   try {
     const { listId, visibility } = req.body;

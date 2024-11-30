@@ -52,32 +52,28 @@ const LoggedIn = () => {
  
   
   // Fetch lists for the logged-in user
-  const fetchLists = useCallback(async () => {
-    try {
-      if (!userEmail) {
-        console.error("User email not found.");
-        return;
-      }
-
-      const response = await axios.get(`${BACKEND_URL}/api/getLists`, {
-        params: { email: userEmail },
-      });
-
-      setLists(response.data.lists || []); // Update state with new lists
-
-      // Find and update the selected list
-      const selectedList = response.data.lists.find((list) => list.selected);
-      if (selectedList) {
-        setSelectedList(selectedList.listName);
-        setSelectedListId(selectedList._id); // Update ID if selected
-      } else {
-        setSelectedList(null);
-        setSelectedListId(null);
-      }
-    } catch (err) {
-      console.error("Error fetching lists:", err.message);
+ // Fetch lists for the logged-in user
+ const fetchLists = useCallback(async () => {
+  try {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      console.error("No token found. User might not be logged in.");
+      return;
     }
-  }, [userEmail]);
+
+    const response = await axios.get(`${BACKEND_URL}/api/getLists`, {
+      headers: { Authorization: `Bearer ${token}` }, // Include token for authentication
+    });
+
+    setLists(response.data.lists || []); // Only the user's lists
+    const selectedList = response.data.lists.find((list) => list.selected);
+    setSelectedList(selectedList?.listName || null);
+    setSelectedListId(selectedList?._id || null);
+  } catch (err) {
+    console.error("Error fetching user-specific lists:", err.message);
+  }
+}, []);
+
 
 
   // Set up interval to refresh the list every second
