@@ -279,43 +279,47 @@ const client = new MongoClient(DATABASE_URI);
   
   // Login User
   app.post("/api/login", async (req, res) => {
-    const { email, username, password } = req.body;
+    const { usernameOrEmail, password } = req.body;
   
     try {
-      // Search for the user by email or username
+      // Check if user exists using either username or email
       const user = await db.collection("users").findOne({
-        $or: [{ email }, { username }],
+        $or: [{ username: usernameOrEmail }, { email: usernameOrEmail }],
       });
   
       if (!user) {
-        return res.status(404).json({ error: "User not found." });
+        return res.status(401).json({ error: "Invalid username/email or password." });
       }
   
-      // Compare the password
+      // Compare password
       const isMatch = await bcrypt.compare(password, user.password);
       if (!isMatch) {
-        return res.status(401).json({ error: "Invalid username or password." });
+        return res.status(401).json({ error: "Invalid username/email or password." });
       }
   
-      // Check account status
+      // Check if account is active
       if (user.status !== "active") {
-        return res.status(403).json({ error: "Account is not active." });
+        return res.status(403).json({ error: "Your account is not active or disabled. Contact support for help." });
       }
   
-      // Generate a token
+      // Generate token with user details
       const token = jwt.sign(
-        { id: user._id, username: user.username, status: user.status, isAdmin: user.isAdmin },
+        { id: user._id, username: user.username, email: user.email, isAdmin: user.isAdmin },
         process.env.TOKEN_SECRET,
         { expiresIn: "1h" }
       );
   
-      // Respond with the token
-      res.status(200).json({ message: "Login successful", token, status: user.status, isAdmin: user.isAdmin });
+      res.status(200).json({
+        message: "Login successful",
+        token,
+        isAdmin: user.isAdmin || false,
+      });
     } catch (err) {
       console.error("Login error:", err.message);
-      res.status(500).json({ error: "Failed to log in." });
+      res.status(500).json({ error: "Failed to log in. Please try again later." });
     }
   });
+  
   
   
   
@@ -466,10 +470,11 @@ app.post("/api/add-review", authenticateToken, async (req, res) => {
     const review = {
       _id: new ObjectId(),
       userId: req.user.id,
-      username: user.nickname,
+      username: user.nickname || "Anonymous",
       rating: Number(rating),
       comment: comment || "",
       createdAt: new Date(),
+      visibility: "visible", // Default visibility
     };
 
     const result = await db.collection("lists").updateOne(
@@ -495,12 +500,13 @@ app.post("/api/add-review", authenticateToken, async (req, res) => {
 
     console.log("Review added successfully:", review);
 
-    res.status(201).json({ message: "Review added successfully", updatedList });
+    res.status(201).json({ message: "Review added successfully", newReview: review, updatedList });
   } catch (error) {
     console.error("Error in add-review:", error.message);
     res.status(500).json({ error: "Failed to add review." });
   }
 });
+
 
 
 

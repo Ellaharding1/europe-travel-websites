@@ -75,7 +75,7 @@ const PublicLists = () => {
       return;
     }
   
-    // Show confirmation dialog
+    // Confirmation dialog
     const isConfirmed = window.confirm(
       `Are you sure you want to submit this review? \n\nRating: ${rating}\nComment: ${comment || "No comment"}`
     );
@@ -83,11 +83,11 @@ const PublicLists = () => {
     if (!isConfirmed) return;
   
     try {
-      console.log("Submitting review:", { listId, rating, comment });
+      console.log("Submitting review:", { listId, rating, comment, visibility: "visible" });
   
       const response = await axios.post(
         `${import.meta.env.VITE_BACKEND_URL}/api/add-review`,
-        { listId, rating, comment },
+        { listId, rating, comment, visibility: "visible" }, // Add visibility field
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -100,7 +100,9 @@ const PublicLists = () => {
       // Update the list with the new review
       setPublicLists((prevLists) =>
         prevLists.map((list) =>
-          list._id === listId ? { ...list, ...response.data.updatedList } : list
+          list._id === listId
+            ? { ...list, reviews: [...list.reviews, response.data.newReview] }
+            : list
         )
       );
   
@@ -116,6 +118,8 @@ const PublicLists = () => {
       alert(`Failed to add review: ${errorMessage}`);
     }
   };
+  
+  
   
   
   
@@ -213,35 +217,40 @@ const PublicLists = () => {
                   </Typography>
 
                   {/* Display Reviews */}
-                  {list.reviews && list.reviews.length > 0 ? (
+{/* Display Reviews */}
+{list.reviews && list.reviews.length > 0 ? (
   <>
     <Typography variant="body2" sx={{ marginTop: "10px" }}>
       <strong>Reviews:</strong>
     </Typography>
-    {list.reviews.map((review, index) => (
-      <Box
-        key={index}
-        sx={{
-          marginBottom: "10px",
-          padding: "10px",
-          backgroundColor: "rgba(240, 240, 240, 0.9)",
-          borderRadius: "8px",
-        }}
-      >
-        <Typography variant="body2">
-          <strong>{review.username}:</strong> {review.comment}
-        </Typography>
-        <Typography variant="body2" color="textSecondary">
-          Rating: {review.rating} / 5
-        </Typography>
-      </Box>
-    ))}
+    {list.reviews
+      .filter((review) => review.visibility === "visible") // Only show visible reviews
+      .map((review, index) => (
+        <Box
+          key={index}
+          sx={{
+            marginBottom: "10px",
+            padding: "10px",
+            backgroundColor: "rgba(240, 240, 240, 0.9)",
+            borderRadius: "8px",
+          }}
+        >
+          <Typography variant="body2">
+            <strong>{review.username}:</strong> {review.comment}
+          </Typography>
+          <Typography variant="body2" color="textSecondary">
+            Rating: {review.rating} / 5
+          </Typography>
+        </Box>
+      ))}
   </>
 ) : (
   <Typography variant="body2" sx={{ marginTop: "10px", color: "gray" }}>
     No reviews yet.
   </Typography>
 )}
+
+
 
                   </Box>
                   <Button

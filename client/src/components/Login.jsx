@@ -46,7 +46,7 @@ function Login() {
       if (status === 401) {
         setMessage("Invalid credentials. Please try again.");
       } else if (status === 403) {
-        setMessage("Your account is not active or disabled.");
+        setMessage("Your account is not active or disabled. You can contact support@gmail.com for help.");
       } else {
         setMessage("An unexpected error occurred. Please try again later.");
       }

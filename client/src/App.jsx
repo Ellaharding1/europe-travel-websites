@@ -16,6 +16,7 @@ import AdministratorLogin from "./components/AdministratorLogin";
 import HomeNavBar from "./components/HomeNavBar";
 import LoggedInNavBar from "./components/LoggedInNavBar";
 import EditReview from "./components/EditReview"; 
+import PrivacyPolicy from "./components/PrivacyPolicyModal"; // Import the new component
 
 import Logout from "./components/Logout";
 
@@ -38,7 +39,8 @@ function App() {
             <Route path="/administrator" element={<Administrator />} />
             <Route path="/AdministratorLogin" element={<AdministratorLogin />} />
             <Route path="/logout" element={<Logout />} />
-            <Route path="/edit-review" element={<EditReview />} /> {/* New Route */}
+            <Route path="/edit-review" element={<EditReview />} /> 
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
 
           </Routes>
         </div>
