@@ -279,11 +279,14 @@ const client = new MongoClient(DATABASE_URI);
   
   // Login User
   app.post("/api/login", async (req, res) => {
-    const { email, password } = req.body;
+    const { email, username, password } = req.body;
   
     try {
-      // Find the user by email
-      const user = await db.collection("users").findOne({ email });
+      // Search for the user by email or username
+      const user = await db.collection("users").findOne({
+        $or: [{ email }, { username }],
+      });
+  
       if (!user) {
         return res.status(404).json({ error: "User not found." });
       }
@@ -291,31 +294,32 @@ const client = new MongoClient(DATABASE_URI);
       // Compare the password
       const isMatch = await bcrypt.compare(password, user.password);
       if (!isMatch) {
-        return res.status(401).json({ error: "Invalid email or password." });
+        return res.status(401).json({ error: "Invalid username or password." });
       }
   
-      // Check if the user is verified
-      if (!user.isVerified) {
-        return res.status(403).json({ error: "Please verify your email before logging in." });
+      // Check account status
+      if (user.status !== "active") {
+        return res.status(403).json({ error: "Account is not active." });
       }
   
-      // Check if the account is disabled
-      if (user.isDisabled) {
-        return res.status(403).json({ error: "Account is disabled." });
-      }
+      // Generate a token
+      const token = jwt.sign(
+        { id: user._id, username: user.username, status: user.status, isAdmin: user.isAdmin },
+        process.env.TOKEN_SECRET,
+        { expiresIn: "1h" }
+      );
   
-      // Generate a token with user information
-      const token = jwt.sign({ id: user._id, email: user.email, status: user.status }, process.env.TOKEN_SECRET, {
-        expiresIn: "1h",
-      });
-  
-      // Respond with the token and user status
-      res.status(200).json({ message: "Login successful", token, status: user.status });
+      // Respond with the token
+      res.status(200).json({ message: "Login successful", token, status: user.status, isAdmin: user.isAdmin });
     } catch (err) {
       console.error("Login error:", err.message);
       res.status(500).json({ error: "Failed to log in." });
     }
   });
+  
+  
+  
+  
   
   
 
@@ -917,34 +921,52 @@ app.post("/api/admin/login", async (req, res) => {
   const { username, password } = req.body;
 
   try {
+    // Find the admin by username
     const admin = await db.collection("admins").findOne({ username });
-    if (!admin) return res.status(403).json({ error: "Invalid credentials" });
+    if (!admin) {
+      return res.status(404).json({ error: "Admin not found." });
+    }
 
-    const isPasswordValid = await bcrypt.compare(password, admin.password);
-    if (!isPasswordValid) return res.status(403).json({ error: "Invalid credentials" });
+    // Compare the password
+    const isMatch = await bcrypt.compare(password, admin.password);
+    if (!isMatch) {
+      return res.status(401).json({ error: "Invalid username or password." });
+    }
 
+    // Check if the account is disabled
+    if (admin.isDisabled) {
+      return res.status(403).json({ error: "Admin account is disabled." });
+    }
+
+    // Generate a token with admin information
     const token = jwt.sign(
-      { id: admin._id, role: "admin" }, // Include role
+      { id: admin._id, username: admin.username, isAdmin: true },
       process.env.TOKEN_SECRET,
       { expiresIn: "1h" }
     );
-    res.status(200).json({ message: "Login successful", token });
+
+    // Respond with the token and admin status
+    res.status(200).json({ message: "Login successful", token, isAdmin: true });
   } catch (err) {
     console.error("Admin login error:", err.message);
-    res.status(500).json({ error: "An error occurred during login" });
+    res.status(500).json({ error: "Failed to log in." });
   }
 });
 
+
+
 // Fetch Users (Admin Protected Route)
-app.get("/api/admin/users", authenticateAdmin, async (req, res) => {
+app.get("/api/admin/users", authenticateToken, async (req, res) => {
   try {
-    const users = await db.collection("users").find({}).toArray(); // Fetch all users
-    res.status(200).json(users); // Send users as JSON response
+    // Fetch all users from the database
+    const users = await db.collection("users").find().toArray();
+    res.status(200).json(users);
   } catch (err) {
     console.error("Error fetching users:", err.message);
-    res.status(500).json({ error: "Failed to fetch users" });
+    res.status(500).json({ error: "Failed to fetch users." });
   }
 });
+
 
 
 
@@ -1002,21 +1024,22 @@ app.get("/api/check-admin", authenticateToken, async (req, res) => {
 
 app.get("/api/user-profile", authenticateToken, async (req, res) => {
   try {
-    const { id } = req.user;
+    const { id } = req.user; // Extract user ID from the token
 
+    // Fetch user from the database
     const user = await db.collection("users").findOne({ _id: new ObjectId(id) });
 
     if (!user) {
       return res.status(404).json({ error: "User not found." });
     }
 
-    // Return user status and isAdmin property
+    // Return user details
     res.status(200).json({
       id: user._id,
       email: user.email,
       nickname: user.nickname,
       status: user.status, // 'active' or other statuses
-      isAdmin: user.isAdmin || false, // Ensure boolean
+      isAdmin: user.isAdmin || false,
     });
   } catch (err) {
     console.error("Error fetching user profile:", err.message);
@@ -1034,12 +1057,88 @@ app.get("/api/admin", authenticateToken, (req, res) => {
 });
 
 
+app.get("/api/admin/reviews", authenticateToken, async (req, res) => {
+  try {
+    // Fetch all lists with their reviews
+    const lists = await db.collection("lists").find({}).toArray();
 
+    // Extract reviews from each list
+    const reviews = lists.flatMap((list) =>
+      (list.reviews || []).map((review) => ({
+        ...review,
+        listName: list.listName, // Include list name for context
+        listId: list._id, // Include the list ID for reference
+      }))
+    );
 
+    if (!reviews.length) {
+      return res.status(404).json({ message: "No reviews found." });
+    }
 
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+    res.status(200).json(reviews);
+  } catch (err) {
+    console.error("Error fetching reviews:", err.message);
+    res.status(500).json({ error: "Failed to fetch reviews." });
+  }
 });
+
+
+
+app.patch("/api/admin/review", authenticateToken, async (req, res) => {
+  const { reviewId, visibility } = req.body;
+
+  try {
+    // Update the visibility of the review in the appropriate list
+    const result = await db.collection("lists").updateOne(
+      { "reviews._id": new ObjectId(reviewId) },
+      { $set: { "reviews.$.visibility": visibility } }
+    );
+
+    if (result.modifiedCount === 0) {
+      return res.status(404).json({ error: "Review not found or not updated." });
+    }
+
+    res.status(200).json({ message: "Review visibility updated successfully." });
+  } catch (err) {
+    console.error("Error updating review visibility:", err.message);
+    res.status(500).json({ error: "Failed to update review visibility." });
+  }
+});
+
+
+app.patch("/api/admin/reviews/visibility", authenticateToken, async (req, res) => {
+  const { reviewId, visibility } = req.body;
+
+  if (!reviewId || !visibility) {
+    return res.status(400).json({ error: "Review ID and visibility are required." });
+  }
+
+  try {
+    // Update the visibility of the review
+    const result = await db.collection("lists").updateOne(
+      { "reviews._id": new ObjectId(reviewId) },
+      { $set: { "reviews.$.visibility": visibility } }
+    );
+
+    if (result.modifiedCount === 0) {
+      return res.status(404).json({ error: "Review not found." });
+    }
+
+    res.status(200).json({ message: "Review visibility updated successfully." });
+  } catch (error) {
+    console.error("Error updating review visibility:", error.message);
+    res.status(500).json({ error: "Failed to update review visibility." });
+  }
+});
+
+
+
+
+
+
+
+
+
 
 // Middleware for authentication
 async function authenticateToken(req, res, next) {
@@ -1051,7 +1150,7 @@ async function authenticateToken(req, res, next) {
 
   try {
     // Decode and verify the token
-    const decoded = jwt.verify(token, process.env.TOKEN_SECRET);
+    const decoded = jwt.verify(token, process.env.TOKEN_SECRET); // Adjust secret key if necessary
 
     // Fetch the user from the database
     const user = await db.collection("users").findOne({ _id: new ObjectId(decoded.id) });
@@ -1079,6 +1178,14 @@ async function authenticateToken(req, res, next) {
     res.status(403).json({ error: "Invalid or expired token." });
   }
 }
+
+
+
+app.listen(PORT, () => {
+  console.log(`Server is running on http://localhost:${PORT}`);
+});
+
+
 
 
 

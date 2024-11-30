@@ -15,9 +15,10 @@ const AdminNavBar = () => {
         <Button color="inherit" component={Link} to="/Administrator">
           Manage Users
         </Button>
-        <Button color="inherit" component={Link} to="/public-lists">
-          Public Lists
-        </Button>
+
+        <Button color="inherit" component={Link} to="/edit-review">
+              Manage Reviews
+            </Button>
         <Button color="inherit" component={Link} to="/logout">
           Logout
         </Button>

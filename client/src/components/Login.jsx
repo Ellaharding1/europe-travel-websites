@@ -2,15 +2,15 @@ import React, { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { Box, Button, TextField, Typography, Toolbar } from "@mui/material";
-import HomeNavBar from "./HomeNavBar"; // Import the reusable navbar
-import { useAuth } from "./AuthContext"; // Import AuthContext to manage authentication state
+import HomeNavBar from "./HomeNavBar";
+import { useAuth } from "./AuthContext";
 
 function Login() {
-  const [formData, setFormData] = useState({ email: "", password: "" });
+  const [formData, setFormData] = useState({ usernameOrEmail: "", password: "" });
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { logIn } = useAuth(); // Get the logIn function from AuthContext
+  const { logIn } = useAuth();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -19,32 +19,23 @@ function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.email || !formData.password) {
-      setMessage("Email and password are required.");
+    if (!formData.usernameOrEmail || !formData.password) {
+      setMessage("Username/Email and password are required.");
       return;
     }
-  
-    if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      setMessage("Please enter a valid email address.");
-      return;
-    }
-  
+
     setLoading(true);
     try {
       const response = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/login`, formData);
-      const { token, status } = response.data;
-  
+      const { token, isAdmin } = response.data;
+
       setMessage("Login successful!");
-  
-      // Save email and token to localStorage
       localStorage.setItem("token", token);
-      localStorage.setItem("email", formData.email);
-  
-      // Use logIn from AuthContext to update state
-      logIn(token, status);
-  
-      // Redirect based on user status
-      if (status === "admin") {
+
+      logIn(token);
+
+      // Redirect to admin dashboard if admin, else to logged-in dashboard
+      if (isAdmin) {
         navigate("/administrator");
       } else {
         navigate("/loggedIn");
@@ -55,7 +46,7 @@ function Login() {
       if (status === 401) {
         setMessage("Invalid credentials. Please try again.");
       } else if (status === 403) {
-        setMessage("Your account is disabled or not verified.");
+        setMessage("Your account is not active or disabled.");
       } else {
         setMessage("An unexpected error occurred. Please try again later.");
       }
@@ -63,45 +54,38 @@ function Login() {
       setLoading(false);
     }
   };
-  
 
   return (
     <Box
       display="flex"
       flexDirection="column"
       alignItems="center"
-      justifyContent="flex-start" // Align content higher on the page
+      justifyContent="flex-start"
       height="100vh"
       textAlign="center"
       sx={{
-        margin: "0 auto",
-        backgroundImage: "url('../img/background.png')", // Reuse HomePage background
+        backgroundImage: "url('../img/background.png')",
         backgroundSize: "cover",
         backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
         color: "#ffffff",
-        paddingTop: "15vh", // Adjust top padding to move the form higher
+        paddingTop: "15vh",
       }}
     >
-      <HomeNavBar /> {/* Navigation bar */}
-      <Toolbar /> {/* Spacer for the fixed AppBar */}
+      <HomeNavBar />
+      <Toolbar />
       <Typography variant="h4" gutterBottom>
         Login
       </Typography>
       <form onSubmit={handleSubmit} style={{ width: "100%", maxWidth: "400px" }}>
         <TextField
-          label="Email"
-          name="email"
-          type="email"
-          value={formData.email}
+          label="Username or Email"
+          name="usernameOrEmail"
+          type="text"
+          value={formData.usernameOrEmail}
           onChange={handleChange}
           required
           fullWidth
           margin="normal"
-          sx={{
-            backgroundColor: "rgba(255, 255, 255, 0.9)",
-            borderRadius: "5px",
-          }}
         />
         <TextField
           label="Password"
@@ -112,37 +96,19 @@ function Login() {
           required
           fullWidth
           margin="normal"
-          sx={{
-            backgroundColor: "rgba(255, 255, 255, 0.9)",
-            borderRadius: "5px",
-          }}
         />
         <Button
           type="submit"
           variant="contained"
           color="primary"
           disabled={loading}
-          sx={{
-            marginTop: "20px",
-            padding: "10px",
-            width: "100%",
-            cursor: loading ? "not-allowed" : "pointer",
-          }}
+          fullWidth
+          sx={{ marginTop: "20px" }}
         >
           {loading ? "Logging in..." : "Login"}
         </Button>
       </form>
-      {message && (
-        <Typography
-          variant="body1"
-          sx={{
-            marginTop: "20px",
-            color: message === "Login successful!" ? "green" : "red",
-          }}
-        >
-          {message}
-        </Typography>
-      )}
+      {message && <Typography sx={{ marginTop: "20px", color: "red" }}>{message}</Typography>}
     </Box>
   );
 }

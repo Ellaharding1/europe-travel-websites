@@ -46,7 +46,6 @@ const LoggedInNavBar = () => {
         <Button color="inherit" component={Link} to="/logout">
           Logout
         </Button>
-        {console.log("Navbar isAdmin:", isAdmin)}
         {isAdmin && (
           <>
             <Typography
@@ -63,6 +62,8 @@ const LoggedInNavBar = () => {
             <Button color="inherit" component={Link} to="/Administrator">
               Admin Dashboard
             </Button>
+            
+
           </>
         )}
       </Toolbar>

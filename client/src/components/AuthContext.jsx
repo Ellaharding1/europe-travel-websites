@@ -20,30 +20,29 @@ export const AuthProvider = ({ children }) => {
         setLoading(false);
         return;
       }
-
+    
       console.log("Token exists, validating with backend...");
-
+    
       try {
         const response = await axios.get(`${BACKEND_URL}/api/user-profile`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-
+    
         console.log("Backend response:", response.data);
-
-        // Set state based on response
+    
         const { status, isAdmin: adminStatus } = response.data;
         setIsLoggedIn(true);
-        setIsAdmin(status === "active" || adminStatus); // Admin if status is "active" or backend provides adminStatus
-        console.log("isLoggedIn:", true);
-        console.log("isAdmin:", status === "active" || adminStatus);
+        setIsAdmin(adminStatus || status === "admin");
+        console.log("Updated isAdmin:", adminStatus || status === "admin");
       } catch (error) {
         console.error("Error validating token:", error.message);
         setIsLoggedIn(false);
         setIsAdmin(false);
       } finally {
-        setLoading(false); // Ensure loading is set to false after validation
+        setLoading(false);
       }
     };
+    
 
     validateToken();
   }, [token]); // Re-run whenever `token` changes
@@ -64,7 +63,9 @@ export const AuthProvider = ({ children }) => {
 
   // Provide a loading state to handle conditional rendering in other components
   return (
-    <AuthContext.Provider value={{ isLoggedIn, isAdmin, logIn, logOut, loading }}>
+    <AuthContext.Provider
+      value={{ isLoggedIn, isAdmin, logIn, logOut, loading }}
+    >
       {children}
     </AuthContext.Provider>
   );

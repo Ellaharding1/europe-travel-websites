@@ -15,6 +15,8 @@ import Administrator from "./components/Administrator";
 import AdministratorLogin from "./components/AdministratorLogin";
 import HomeNavBar from "./components/HomeNavBar";
 import LoggedInNavBar from "./components/LoggedInNavBar";
+import EditReview from "./components/EditReview"; 
+
 import Logout from "./components/Logout";
 
 // Main App component
@@ -36,6 +38,8 @@ function App() {
             <Route path="/administrator" element={<Administrator />} />
             <Route path="/AdministratorLogin" element={<AdministratorLogin />} />
             <Route path="/logout" element={<Logout />} />
+            <Route path="/edit-review" element={<EditReview />} /> {/* New Route */}
+
           </Routes>
         </div>
       </Router>
