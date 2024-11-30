@@ -32,10 +32,10 @@ const LoggedInNavBar = () => {
     <AppBar position="fixed" color="primary">
       <Toolbar>
         <Typography variant="h6" style={{ flexGrow: 1 }}>
-          Travel System
+          Welcome to your Travel Account!
         </Typography>
-        <Button color="inherit" component={Link} to="/">
-          Home
+        <Button color="inherit" component={Link} to="/LoggedIn">
+          Lists
         </Button>
         <Button color="inherit" component={Link} to="/search-destination">
           Search Destinations
@@ -60,8 +60,8 @@ const LoggedInNavBar = () => {
             >
               You have admin privileges
             </Typography>
-            <Button color="inherit" component={Link} to="/AdministratorLogin">
-              Admin Login
+            <Button color="inherit" component={Link} to="/Administrator">
+              Admin Dashboard
             </Button>
           </>
         )}

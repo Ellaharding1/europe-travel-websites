@@ -264,17 +264,9 @@ const handleDescriptionEdit = async (listId, newDescription) => {
     >
 <Box>
       <LoggedInNavBar isAdmin={isAdmin} /> {/* Pass isAdmin to Navbar */}
-      <Toolbar />
-      <Typography variant="h4">Welcome to your dashboard!</Typography>
       {/* Add more components as needed */}
     </Box>
-            <div
-        style={{
-          display: "flex",
-          flexDirection: "row",
-          flexGrow: 0,
-        }}
-      >
+
 
 
       {/* Public Lists (Left Section) */}
@@ -759,7 +751,7 @@ const handleDescriptionEdit = async (listId, newDescription) => {
         )}
         
       </div>
-    </div>
+    
     </div>
   );
 };

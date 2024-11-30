@@ -55,32 +55,25 @@ const client = new MongoClient(DATABASE_URI);
     const authenticateAdmin = async (req, res, next) => {
       const token = req.headers.authorization?.split(" ")[1];
       if (!token) {
-        console.error("No token provided in Authorization header.");
-        return res.status(401).json({ error: "Unauthorized: No token provided" });
+        return res.status(401).json({ error: "Access denied. No token provided." });
       }
     
       try {
-        const decoded = jwt.verify(token, process.env.TOKEN_SECRET);
-        console.log("Decoded token:", decoded);
+        const decoded = jwt.verify(token, process.env.TOKEN_SECRET); // Adjust secret key if necessary
+        const user = await db.collection("users").findOne({ _id: new ObjectId(decoded.id) });
     
-        if (decoded.role !== "admin") {
-          console.error("User is not an admin. Role:", decoded.role);
-          return res.status(403).json({ error: "Forbidden: Admin access required" });
+        if (!user || !user.isAdmin) {
+          return res.status(403).json({ error: "Access denied. Admin privileges required." });
         }
     
-        const admin = await db.collection("admins").findOne({ _id: new ObjectId(decoded.id) });
-        if (!admin) {
-          console.error("Admin not found in database. Admin ID:", decoded.id);
-          return res.status(403).json({ error: "Forbidden: Admin not found" });
-        }
-    
-        req.admin = admin;
-        next(); // Proceed
-      } catch (err) {
-        console.error("Error in authenticateAdmin middleware:", err.message, err.stack);
-        res.status(500).json({ error: "Internal server error during authentication." });
+        req.user = user; // Attach user to the request
+        next();
+      } catch (error) {
+        console.error("Authorization error:", error);
+        res.status(403).json({ error: "Invalid or expired token." });
       }
     };
+    
     
     
 

@@ -9,14 +9,11 @@ const AdminNavBar = () => {
         <Typography variant="h6" style={{ flexGrow: 1 }}>
           Admin Dashboard
         </Typography>
-        <Button color="inherit" component={Link} to="/">
-          Home
+        <Button color="inherit" component={Link} to="/LoggedIn">
+          Back to Travel Account
         </Button>
         <Button color="inherit" component={Link} to="/Administrator">
           Manage Users
-        </Button>
-        <Button color="inherit" component={Link} to="/search-destination">
-          Search Destinations
         </Button>
         <Button color="inherit" component={Link} to="/public-lists">
           Public Lists

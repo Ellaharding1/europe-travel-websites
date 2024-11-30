@@ -1,43 +1,39 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { Box, Typography, Card, CardContent, Button, Grid } from "@mui/material";
-import AdminNavBar from "./AdminNavBar"; // Import the reusable navbar
-
-
+import AdminNavBar from "./AdminNavBar"; // Import the Admin navbar
+import LoggedInNavBar from "./LoggedInNavBar"; // Import the Logged-in navbar
+import HomeNavBar from "./HomeNavBar"; // Import the Home navbar
+import { useAuth } from "./AuthContext"; // Import the Auth context
 
 const Administrator = () => {
   const [users, setUsers] = useState([]); // Store all users
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
-
+  const { isAdmin, isLoggedIn } = useAuth(); // Use AuthContext directly
 
   useEffect(() => {
     const fetchData = async () => {
-        try {
-          const token = localStorage.getItem("token");
-          if (!token) throw new Error("Token not found");
-      
-          const response = await axios.get(`${BACKEND_URL}/api/admin/users`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          
-      
-          setUsers(response.data);
-        } catch (err) {
-          console.error("Error fetching users:", err.message);
-          if (err.response && err.response.status === 404) {
-            console.error("API endpoint not found. Check backend route definition.");
-          } else if (err.response && err.response.status === 403) {
-            console.error("Access denied. Admin privileges required.");
-          }
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) throw new Error("Token not found");
+
+        const response = await axios.get(`${BACKEND_URL}/api/admin/users`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        setUsers(response.data);
+      } catch (err) {
+        console.error("Error fetching users:", err.message);
+        if (err.response && err.response.status === 404) {
+          console.error("API endpoint not found. Check backend route definition.");
+        } else if (err.response && err.response.status === 403) {
+          console.error("Access denied. Admin privileges required.");
         }
-      };
-      
-  
-    fetchData();
-  }, []);
-  
-  
-  
+      }
+    };
+
+    if (isAdmin) fetchData();
+  }, [isAdmin]);
 
   const toggleUserStatus = async (userId, status) => {
     try {
@@ -48,7 +44,7 @@ const Administrator = () => {
       const config = { headers: { Authorization: `Bearer ${token}` } };
 
       const response = await axios.patch(
-        `${import.meta.env.VITE_BACKEND_URL}/api/admin/user`,
+        `${BACKEND_URL}/api/admin/user`,
         { userId, status },
         config
       );
@@ -71,7 +67,7 @@ const Administrator = () => {
       const config = { headers: { Authorization: `Bearer ${token}` } };
 
       const response = await axios.patch(
-        `${import.meta.env.VITE_BACKEND_URL}/api/admin/grant`,
+        `${BACKEND_URL}/api/admin/grant`,
         { email },
         config
       );
@@ -94,7 +90,7 @@ const Administrator = () => {
       const config = { headers: { Authorization: `Bearer ${token}` } };
 
       const response = await axios.patch(
-        `${import.meta.env.VITE_BACKEND_URL}/api/admin/revoke`,
+        `${BACKEND_URL}/api/admin/revoke`,
         { email },
         config
       );
@@ -125,7 +121,9 @@ const Administrator = () => {
         color: "#ffffff",
       }}
     >
-        <AdminNavBar />
+      {/* Conditionally render the navbar */}
+      {isAdmin ? <AdminNavBar /> : isLoggedIn ? <LoggedInNavBar /> : <HomeNavBar />}
+
       <Typography
         variant="h3"
         sx={{

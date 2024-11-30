@@ -139,7 +139,13 @@ const PublicLists = () => {
         minHeight: "100vh",
       }}
     >
-              <HomeNavBar />
+                    <Box>
+      {/* Dynamically render the appropriate navbar */}
+      {isLoggedIn ? <LoggedInNavBar isAdmin={isAdmin} /> : <HomeNavBar />}
+      <Toolbar /> {/* Add spacing for navbar */}
+      <Typography variant="h4">Public Lists</Typography>
+      {/* Add content for public lists */}
+    </Box>
 
       <Typography
         variant="h4"
