@@ -27,6 +27,7 @@ const LoggedInNavBar = () => {
     fetchAdminStatus();
   }, []);
 
+
   return (
     <AppBar position="fixed" color="primary">
       <Toolbar>
@@ -45,6 +46,7 @@ const LoggedInNavBar = () => {
         <Button color="inherit" component={Link} to="/logout">
           Logout
         </Button>
+        {console.log("Navbar isAdmin:", isAdmin)}
         {isAdmin && (
           <>
             <Typography
@@ -66,6 +68,7 @@ const LoggedInNavBar = () => {
       </Toolbar>
     </AppBar>
   );
+  
 };
 
 export default LoggedInNavBar;

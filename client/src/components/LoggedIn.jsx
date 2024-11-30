@@ -19,9 +19,9 @@ const LoggedIn = () => {
 
   const { userStatus } = useAuth(); // Get user status from AuthContext
 
-  const { isAdmin } = useAuth(); // Directly get `isAdmin` from AuthContext
 
 
+  const { isAdmin, isLoggedIn, token } = useAuth(); // Use AuthContext directly
 
 
   //sconst [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem("token"));
@@ -45,7 +45,6 @@ const LoggedIn = () => {
   const [selectedList, setSelectedList] = useState(null);
   const [selectedListId, setSelectedListId] = useState(null);
 
-  const { token, isLoggedIn } = useAuth(); // Get the login state and token
 
 
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
@@ -251,7 +250,6 @@ const handleDescriptionEdit = async (listId, newDescription) => {
       console.error("Error updating last edited timestamp:", err.message);
     }
   };
-console.log(isAdmin)
 
 
   return (
@@ -264,9 +262,12 @@ console.log(isAdmin)
         overflow: "hidden",
       }}
     >
-            <LoggedInNavBar isAdmin={isAdmin} /> {/* Use the updated navbar */}
-            <Toolbar /> {/* Spacer for the fixed AppBar */}
-
+<Box>
+      <LoggedInNavBar isAdmin={isAdmin} /> {/* Pass isAdmin to Navbar */}
+      <Toolbar />
+      <Typography variant="h4">Welcome to your dashboard!</Typography>
+      {/* Add more components as needed */}
+    </Box>
             <div
         style={{
           display: "flex",
@@ -279,16 +280,16 @@ console.log(isAdmin)
       {/* Public Lists (Left Section) */}
     <div
       style={{
-        width: "50%", // Adjust width as needed
+        width: "75%", // Adjust width as needed
         borderRight: "1px solid #ccc",
         overflowY: "auto",
         padding: "20px",
         backgroundColor: "#2d3d50",
       }}
     >
-      <PublicLists />
+      {/* <PublicLists /> 
     </div>
-      {/* Left Section (Search Destinations) */}
+     
       <div
         style={{
           width: isPublicListsCollapsed ? "90%" : "70%",
@@ -298,7 +299,8 @@ console.log(isAdmin)
           transition: "width 0.3s ease",
           backgroundColor: "#2d3d50",
         }}
-      >
+      >*/}
+       
   
         {/* Search Destination Component */}
         <SearchDestination

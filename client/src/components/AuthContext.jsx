@@ -9,6 +9,7 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem("token"));
   const [isLoggedIn, setIsLoggedIn] = useState(!!token);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [loading, setLoading] = useState(true); // Track loading state for validation
 
   useEffect(() => {
     const validateToken = async () => {
@@ -16,6 +17,7 @@ export const AuthProvider = ({ children }) => {
         console.log("No token found. User is logged out.");
         setIsLoggedIn(false);
         setIsAdmin(false);
+        setLoading(false);
         return;
       }
 
@@ -29,16 +31,17 @@ export const AuthProvider = ({ children }) => {
         console.log("Backend response:", response.data);
 
         // Set state based on response
-        const { status } = response.data;
+        const { status, isAdmin: adminStatus } = response.data;
         setIsLoggedIn(true);
-        setIsAdmin(status === "active"); // Check if status is "active"
-
+        setIsAdmin(status === "active" || adminStatus); // Admin if status is "active" or backend provides adminStatus
         console.log("isLoggedIn:", true);
-        console.log("isAdmin:", status === "active");
+        console.log("isAdmin:", status === "active" || adminStatus);
       } catch (error) {
         console.error("Error validating token:", error.message);
         setIsLoggedIn(false);
         setIsAdmin(false);
+      } finally {
+        setLoading(false); // Ensure loading is set to false after validation
       }
     };
 
@@ -59,8 +62,9 @@ export const AuthProvider = ({ children }) => {
     setIsAdmin(false);
   };
 
+  // Provide a loading state to handle conditional rendering in other components
   return (
-    <AuthContext.Provider value={{ isLoggedIn, isAdmin, logIn, logOut }}>
+    <AuthContext.Provider value={{ isLoggedIn, isAdmin, logIn, logOut, loading }}>
       {children}
     </AuthContext.Provider>
   );

@@ -3,7 +3,12 @@ import axios from "axios";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import Fuse from "fuse.js";
-import HomeNavBar from "./HomeNavBar"; // Import the reusable navbar
+import HomeNavBar from "./HomeNavBar";
+import LoggedInNavBar from "./LoggedInNavBar";
+import { Box,Toolbar,Typography } from "@mui/material";
+import { useAuth } from "./AuthContext"; // Adjust the path if needed
+
+
 
 
 const SearchDestination = ({ selectedList, selectedListId, setSelectedList, userEmail }) => {
@@ -16,6 +21,8 @@ const SearchDestination = ({ selectedList, selectedListId, setSelectedList, user
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState(false); // Track login status
+  const { isAdmin, token } = useAuth(); // Use AuthContext directly
+
 
   const handleButtonClick = (id) => {
     console.log("Destination ID:", id); // Debug the result.id here
@@ -185,7 +192,13 @@ const SearchDestination = ({ selectedList, selectedListId, setSelectedList, user
         minHeight: "100vh", // Ensures the initial viewport height is covered
      }}
     >
-        <HomeNavBar />
+      <Box>
+      {/* Dynamically render the appropriate navbar */}
+      {isLoggedIn ? <LoggedInNavBar isAdmin={isAdmin} /> : <HomeNavBar />}
+      <Toolbar /> {/* Add spacing for navbar */}
+      <Typography variant="h4">Public Lists</Typography>
+      {/* Add content for public lists */}
+    </Box>
 
         <h1 style={{ textAlign: "center", color: "#fff", marginTop: "70px" }}>
           Search Destinations

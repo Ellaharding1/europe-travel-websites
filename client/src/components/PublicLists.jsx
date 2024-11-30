@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useAuth } from "../components/AuthContext";
-import HomeNavBar from "./HomeNavBar"; // Import the reusable navbar
-
-
-import { Box, Typography, Button, Collapse, Card, CardContent, List, ListItem, ListItemText,Paper, Divider, TextField } from "@mui/material";
+import HomeNavBar from "./HomeNavBar";
+import LoggedInNavBar from "./LoggedInNavBar";
+import { Box, Typography, Button, Collapse, Card, CardContent, List, ListItem, ListItemText,Paper, Divider, TextField, Toolbar } from "@mui/material";
 
 const PublicLists = () => {
   const [publicLists, setPublicLists] = useState([]);
@@ -16,6 +15,8 @@ const PublicLists = () => {
   const [expandedReviewListId, setExpandedReviewListId] = useState(null); // Tracks which list's review form is expanded
   const { token } = useAuth();
   const [lists, setLists] = useState([]);
+  const { isAdmin } = useAuth(); // Use AuthContext directly
+
 
 
 

@@ -19,20 +19,12 @@ import Logout from "./components/Logout";
 
 // Main App component
 function App() {
-  // Retrieve values from AuthContext
   const { isLoggedIn, isAdmin, logout } = useContext(AuthContext);
 
   return (
     <ThemeProvider theme={theme}>
-      <Router>
-        {/* Display navbar based on user authentication */}
-        {isLoggedIn ? (
-          <LoggedInNavBar isAdmin={isAdmin} logoutHandler={logout} />
-        ) : (
-          <HomeNavBar />
-        )}
-        {/* Spacer for the navbar */}
-        <div style={{ marginTop: "64px" }}> {/* Adjust for navbar height */}
+      <Router>      
+        <div style={{ marginTop: "64px" }}>
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/login" element={<Login />} />
@@ -41,17 +33,16 @@ function App() {
             <Route path="/search-destination" element={<SearchDestination />} />
             <Route path="/loggedIn" element={<LoggedIn />} />
             <Route path="/public-lists" element={<PublicLists />} />
-            <Route path="/LoggedIn" element={<LoggedIn />} />
             <Route path="/administrator" element={<Administrator />} />
             <Route path="/AdministratorLogin" element={<AdministratorLogin />} />
             <Route path="/logout" element={<Logout />} />
-
           </Routes>
         </div>
       </Router>
     </ThemeProvider>
   );
 }
+
 
 // Wrap App with AuthProvider
 function WrappedApp() {
