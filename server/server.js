@@ -55,27 +55,33 @@ const client = new MongoClient(DATABASE_URI);
     const authenticateAdmin = async (req, res, next) => {
       const token = req.headers.authorization?.split(" ")[1];
       if (!token) {
+        console.error("No token provided in Authorization header.");
         return res.status(401).json({ error: "Unauthorized: No token provided" });
       }
     
       try {
-        const decoded = jwt.verify(token, process.env.TOKEN_SECRET); // Verify token
+        const decoded = jwt.verify(token, process.env.TOKEN_SECRET);
+        console.log("Decoded token:", decoded);
+    
         if (decoded.role !== "admin") {
+          console.error("User is not an admin. Role:", decoded.role);
           return res.status(403).json({ error: "Forbidden: Admin access required" });
         }
     
         const admin = await db.collection("admins").findOne({ _id: new ObjectId(decoded.id) });
         if (!admin) {
+          console.error("Admin not found in database. Admin ID:", decoded.id);
           return res.status(403).json({ error: "Forbidden: Admin not found" });
         }
     
-        req.admin = admin; // Attach admin details to the request
-        next(); // Proceed to the next middleware or route handler
+        req.admin = admin;
+        next(); // Proceed
       } catch (err) {
-        console.error("Error in authenticateAdmin:", err.message);
-        res.status(403).json({ error: "Invalid token" });
+        console.error("Error in authenticateAdmin middleware:", err.message, err.stack);
+        res.status(500).json({ error: "Internal server error during authentication." });
       }
     };
+    
     
 
 
@@ -939,17 +945,6 @@ app.post("/api/admin/login", async (req, res) => {
 // Fetch Users (Admin Protected Route)
 app.get("/api/admin/users", authenticateAdmin, async (req, res) => {
   try {
-    const users = await db.collection("users").find({}).toArray();
-    res.status(200).json(users);
-  } catch (err) {
-    console.error("Error fetching users:", err.message);
-    res.status(500).json({ error: "Failed to fetch users" });
-  }
-});
-
-
-app.get("/api/admin/users", authenticateAdmin, async (req, res) => {
-  try {
     const users = await db.collection("users").find({}).toArray(); // Fetch all users
     res.status(200).json(users); // Send users as JSON response
   } catch (err) {
@@ -996,6 +991,31 @@ app.get("/api/admin/status", authenticateAdmin, async (req, res) => {
   }
 });
 
+// Check if the user is an admin
+app.get("/api/check-admin", authenticateAdmin, async (req, res) => {
+  try {
+    if (req.user.isAdmin) {
+      res.status(200).json({ isAdmin: true });
+    } else {
+      res.status(200).json({ isAdmin: false });
+    }
+  } catch (error) {
+    console.error("Error in /api/check-admin:", error.message);
+    res.status(500).json({ error: "Failed to check admin status." });
+  }
+});
+
+
+app.get("/api/user-profile", authenticateToken, async (req, res) => {
+  try {
+    const { id, email, nickname, isAdmin } = req.user;
+    res.status(200).json({ id, email, nickname, isAdmin });
+  } catch (error) {
+    console.error("Error fetching user profile:", error.message);
+    res.status(500).json({ error: "Failed to fetch user profile." });
+  }
+});
+
 
 
 
@@ -1013,8 +1033,11 @@ async function authenticateToken(req, res, next) {
   }
 
   try {
-    // Verify the token with the provided secret
-    const decoded = jwt.verify(token, process.env.TOKEN_SECRET);
+    // Decode the token without verifying to extract user ID
+    const decoded = jwt.decode(token);
+    if (!decoded?.id) {
+      return res.status(403).json({ error: "Invalid token payload." });
+    }
 
     // Fetch the user from the database
     const user = await db.collection("users").findOne({ _id: new ObjectId(decoded.id) });
@@ -1022,20 +1045,20 @@ async function authenticateToken(req, res, next) {
       return res.status(404).json({ error: "User not found." });
     }
 
-    // Attach user information to the request
-    req.user = {
-      id: user._id,
-      email: user.email,
-      nickname: user.nickname,
-      isAdmin: user.isAdmin || false,
-    };
-
-    next(); // Proceed to the next middleware or route handler
+    // Verify the token using the user's specific secret key
+    jwt.verify(token, user.secretKey, (err, verified) => {
+      if (err) {
+        return res.status(403).json({ error: "Invalid or expired token." });
+      }
+      req.user = verified; // Attach user info to the request
+      next();
+    });
   } catch (err) {
     console.error("Token verification error:", err.message);
-    res.status(403).json({ error: "Invalid or expired token." });
+    res.status(500).json({ error: "Failed to authenticate token." });
   }
 }
+
 
 
 
@@ -1048,74 +1071,3 @@ async function authenticateToken(req, res, next) {
 }
   
 })();
-// Route to trigger the CSV import (optional)
-/* app.get("/import-csv", async (req, res) => {
-  try {
-    await importCSVtoMongoDB();
-    res.send("CSV imported successfully.");
-  } catch (err) {
-    res.status(500).send("Error importing CSV: " + err.message);
-  }
-}); */
-
-/* async function importCSVtoMongoDB() {
-  const destinations = []; // Array to store parsed data
-
-  try {
-    // Parse the CSV file
-    fs.createReadStream(CSV_FILE_PATH)
-      .pipe(csv())
-      .on("data", (row) => {
-        // Format the row to match the database schema
-        const formattedRow = {
-          id: row.ID,
-          name: row["﻿Destination"] || row["Destination"], // Handles variations in the field name
-          category: row.Category,
-          approximateAnnualTourists: parseInt(row["Approximate Annual Tourists"], 10) || 0,
-          currency: row.Currency,
-          majorityReligion: row["Majority Religion"],
-          famousFoods: row["Famous Foods"],
-          language: row.Language,
-          bestTimetoVisit: row["Best Time to Visit"],
-          costofLiving: row["Cost of Living"], // Keep as a string
-          safety: row.Safety,
-          culturalSignificance: row["Cultural Significance"],
-          description: row["Description"],
-          latitude: parseFloat(row.Latitude) || 0,
-          longitude: parseFloat(row.Longitude) || 0,
-          region: row.Region,
-          country: row.Country,
-        };
-
-        destinations.push(formattedRow); // Add formatted row to the array
-      })
-      .on("end", async () => {
-        console.log("CSV file successfully processed.");
-
-        // Insert data into the MongoDB collection
-        const result = await db.collection("destinations").insertMany(destinations);
-        console.log(`${result.insertedCount} records inserted.`);
-      });
-  } catch (err) {
-    console.error("Error during CSV import:", err);
-  }
-} */
-// Route to trigger the CSV import (optional)
-/* app.get("/import-csv", async (req, res) => {
-
-  try {
-    await importCSVtoMongoDB(); // Call the import function
-    res.send("CSV imported successfully.");
-  } catch (err) {
-    res.status(500).send("Error importing CSV: " + err.message);
-  }
-}); 
-
-*/
-
-
-
-// Middleware
- // Start the server
-
-  

@@ -2,30 +2,38 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { Box, Typography, Card, CardContent, Button, Grid } from "@mui/material";
 
+
 const Administrator = () => {
   const [users, setUsers] = useState([]); // Store all users
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+
 
   useEffect(() => {
     const fetchData = async () => {
-      try {
-        const token = localStorage.getItem("token");
-        const config = { headers: { Authorization: `Bearer ${token}` } };
-        const usersResponse = await axios.get(
-          `${import.meta.env.VITE_BACKEND_URL}/api/admin/users`,
-          config
-        );
-        setUsers(usersResponse.data);
-      } catch (err) {
-        if (err.response?.status === 403) {
-          alert("Access denied. Please ensure you are logged in as an admin.");
-        } else {
-          alert("An unexpected error occurred. Please try again.");
+        try {
+          const token = localStorage.getItem("token");
+          if (!token) throw new Error("Token not found");
+      
+          const response = await axios.get(`${BACKEND_URL}/api/admin/users`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          
+      
+          setUsers(response.data);
+        } catch (err) {
+          console.error("Error fetching users:", err.message);
+          if (err.response && err.response.status === 404) {
+            console.error("API endpoint not found. Check backend route definition.");
+          } else if (err.response && err.response.status === 403) {
+            console.error("Access denied. Admin privileges required.");
+          }
         }
-        console.error("Error fetching users:", err);
-      }
-    };
+      };
+      
+  
     fetchData();
   }, []);
+  
   
   
 

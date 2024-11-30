@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { Box, Typography, Toolbar } from "@mui/material";
 import axios from "axios";
 import SearchDestination from "./SearchDestination";
 import PublicLists from "./PublicLists";
 import { useAuth } from "./AuthContext";
+import LoggedInNavBar from "./LoggedInNavBar"; // Import the new navbar
 
 
 
@@ -13,6 +15,17 @@ const LoggedIn = () => {
   const [editingList, setEditingList] = useState(null); // Track the ID of the list being edited
   const [editDescription, setEditDescription] = useState(""); // Track the description being edited
   const [editListId, setEditListId] = useState(null);
+
+  const [isAdmin, setIsAdmin] = useState(false);
+  const { userStatus } = useAuth(); // Get user status from AuthContext
+
+  useEffect(() => {
+    // Check if the user is an admin
+    if (userStatus === "admin") {
+      setIsAdmin(true);
+    }
+  }, [userStatus]);
+
 
 
 
@@ -256,7 +269,17 @@ const handleDescriptionEdit = async (listId, newDescription) => {
         overflow: "hidden",
       }}
     >
-      
+            <LoggedInNavBar isAdmin={isAdmin} /> {/* Use the updated navbar */}
+            <Toolbar /> {/* Spacer for the fixed AppBar */}
+
+            <div
+        style={{
+          display: "flex",
+          flexDirection: "row",
+          flexGrow: 0,
+        }}
+      >
+
 
       {/* Public Lists (Left Section) */}
     <div
@@ -739,6 +762,7 @@ const handleDescriptionEdit = async (listId, newDescription) => {
         )}
         
       </div>
+    </div>
     </div>
   );
 };

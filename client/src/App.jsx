@@ -36,9 +36,10 @@ function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
-            <Route path="/EmailVerification" element={<EmailVerification />} />
-            <Route path="/SearchDestination" element={<SearchDestination />} />
-            <Route path="/PublicLists" element={<PublicLists />} />
+            <Route path="/verify-email" element={<EmailVerification />} />
+            <Route path="/search-destination" element={<SearchDestination />} />
+            <Route path="/loggedIn" element={<LoggedIn />} />
+            <Route path="/public-lists" element={<PublicLists />} />
             <Route path="/LoggedIn" element={<LoggedIn />} />
             <Route path="/administrator" element={<Administrator />} />
             <Route path="/AdministratorLogin" element={<AdministratorLogin />} />
