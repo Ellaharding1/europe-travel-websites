@@ -27,6 +27,9 @@ const HomeNavBar = () => {
         <Button color="inherit" component={Link} to="/AdministratorLogin">
           Admin Login
         </Button>
+        <Button color="inherit" component={Link} to="/logout">
+          Logout
+        </Button>
       </Toolbar>
     </AppBar>
   );

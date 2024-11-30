@@ -8,6 +8,7 @@ import LoggedInNavBar from "./LoggedInNavBar"; // Import the new navbar
 
 
 
+
 const LoggedIn = () => {
   const [editName, setEditName] = useState("");
   const [editVisibility, setEditVisibility] = useState("private");
@@ -16,15 +17,9 @@ const LoggedIn = () => {
   const [editDescription, setEditDescription] = useState(""); // Track the description being edited
   const [editListId, setEditListId] = useState(null);
 
-  const [isAdmin, setIsAdmin] = useState(false);
   const { userStatus } = useAuth(); // Get user status from AuthContext
 
-  useEffect(() => {
-    // Check if the user is an admin
-    if (userStatus === "admin") {
-      setIsAdmin(true);
-    }
-  }, [userStatus]);
+  const { isAdmin } = useAuth(); // Directly get `isAdmin` from AuthContext
 
 
 
@@ -256,7 +251,7 @@ const handleDescriptionEdit = async (listId, newDescription) => {
       console.error("Error updating last edited timestamp:", err.message);
     }
   };
-
+console.log(isAdmin)
 
 
   return (

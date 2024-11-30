@@ -15,6 +15,7 @@ import Administrator from "./components/Administrator";
 import AdministratorLogin from "./components/AdministratorLogin";
 import HomeNavBar from "./components/HomeNavBar";
 import LoggedInNavBar from "./components/LoggedInNavBar";
+import Logout from "./components/Logout";
 
 // Main App component
 function App() {
@@ -43,6 +44,8 @@ function App() {
             <Route path="/LoggedIn" element={<LoggedIn />} />
             <Route path="/administrator" element={<Administrator />} />
             <Route path="/AdministratorLogin" element={<AdministratorLogin />} />
+            <Route path="/logout" element={<Logout />} />
+
           </Routes>
         </div>
       </Router>

@@ -1,8 +1,32 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { AppBar, Toolbar, Typography, Button } from "@mui/material";
 import { Link } from "react-router-dom";
+import axios from "axios";
 
-const LoggedInNavBar = ({ isAdmin }) => {
+const LoggedInNavBar = () => {
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    const fetchAdminStatus = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+
+        const response = await axios.get(
+          `${import.meta.env.VITE_BACKEND_URL}/api/user-profile`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        // Check if the user is active and has admin privileges
+        setIsAdmin(response.data.status === "active" && response.data.isAdmin);
+      } catch (err) {
+        console.error("Error fetching user profile:", err.message);
+      }
+    };
+
+    fetchAdminStatus();
+  }, []);
+
   return (
     <AppBar position="fixed" color="primary">
       <Toolbar>

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { Box, Typography, Card, CardContent, Button, Grid } from "@mui/material";
+import AdminNavBar from "./AdminNavBar"; // Import the reusable navbar
+
 
 
 const Administrator = () => {
@@ -123,6 +125,7 @@ const Administrator = () => {
         color: "#ffffff",
       }}
     >
+        <AdminNavBar />
       <Typography
         variant="h3"
         sx={{
