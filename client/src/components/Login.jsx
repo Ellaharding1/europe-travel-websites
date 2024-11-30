@@ -1,16 +1,16 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import { Box, Button, TextField, Typography,Toolbar } from "@mui/material";
+import { Box, Button, TextField, Typography, Toolbar } from "@mui/material";
 import HomeNavBar from "./HomeNavBar"; // Import the reusable navbar
-
-
+import { useAuth } from "./AuthContext"; // Import AuthContext to manage authentication state
 
 function Login() {
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { logIn } = useAuth(); // Get the logIn function from AuthContext
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -23,23 +23,32 @@ function Login() {
       setMessage("Email and password are required.");
       return;
     }
-
+  
     if (!/\S+@\S+\.\S+/.test(formData.email)) {
       setMessage("Please enter a valid email address.");
       return;
     }
-
+  
     setLoading(true);
     try {
       const response = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/login`, formData);
+      const { token, status } = response.data;
+  
       setMessage("Login successful!");
-
-      // Save token and email
-      localStorage.setItem("token", response.data.token);
+  
+      // Save email and token to localStorage
+      localStorage.setItem("token", token);
       localStorage.setItem("email", formData.email);
-
-      // Redirect to logged-in page
-      navigate("/loggedIn");
+  
+      // Use logIn from AuthContext to update state
+      logIn(token, status);
+  
+      // Redirect based on user status
+      if (status === "admin") {
+        navigate("/administrator");
+      } else {
+        navigate("/loggedIn");
+      }
     } catch (error) {
       console.error("Login error:", error);
       const status = error.response?.status;
@@ -54,6 +63,7 @@ function Login() {
       setLoading(false);
     }
   };
+  
 
   return (
     <Box

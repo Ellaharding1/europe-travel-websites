@@ -3,7 +3,6 @@ import axios from "axios";
 import SearchDestination from "./SearchDestination";
 import PublicLists from "./PublicLists";
 import { useAuth } from "./AuthContext";
-import HomeNavBar from "./HomeNavBar"; // Import the reusable navbar
 
 
 

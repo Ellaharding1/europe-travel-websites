@@ -79,17 +79,13 @@ const PublicLists = () => {
       `Are you sure you want to submit this review? \n\nRating: ${rating}\nComment: ${comment || "No comment"}`
     );
   
-    if (!isConfirmed) {
-      // If the user cancels the confirmation dialog
-      return;
-    }
+    if (!isConfirmed) return;
   
     try {
-      console.log("Submitting review with:", { listId, rating, comment });
-      console.log("Token being sent:", token);
+      console.log("Submitting review:", { listId, rating, comment });
   
       const response = await axios.post(
-        `${BACKEND_URL}/api/add-review`,
+        `${import.meta.env.VITE_BACKEND_URL}/api/add-review`,
         { listId, rating, comment },
         {
           headers: {
@@ -100,12 +96,14 @@ const PublicLists = () => {
   
       alert(response.data.message);
   
+      // Update the list with the new review
       setPublicLists((prevLists) =>
         prevLists.map((list) =>
           list._id === listId ? { ...list, ...response.data.updatedList } : list
         )
       );
   
+      // Clear the review state for the list
       setReviewState((prevState) => ({
         ...prevState,
         [listId]: { rating: "", comment: "" },
@@ -113,15 +111,11 @@ const PublicLists = () => {
     } catch (err) {
       console.error("Error adding review:", err);
   
-      if (err.response) {
-        console.error("Error response data:", err.response.data);
-        alert(`Failed to add review: ${err.response.data.error || "Unknown error"}`);
-      } else {
-        console.error("Network error or no response from server:", err);
-        alert("Failed to add review. Please try again.");
-      }
+      const errorMessage = err.response?.data?.error || "An unknown error occurred.";
+      alert(`Failed to add review: ${errorMessage}`);
     }
   };
+  
   
   
   const handleInputChange = (listId, field, value) => {

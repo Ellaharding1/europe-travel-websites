@@ -1,50 +1,67 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import HomeNavBar from "./HomeNavBar"; // Import the reusable navbar
 
-
-
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
-
-const AdministratorLogin = () => {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+const AdminLogin = () => {
+  const [formData, setFormData] = useState({ username: "", password: "" });
+  const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  const handleLogin = async (e) => {
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
+
     try {
-      const response = await axios.post(`${BACKEND_URL}/api/admin/login`, { username, password });
-      localStorage.setItem("token", response.data.token);
-      navigate("/administrator");
+      const response = await axios.post(
+        `${import.meta.env.VITE_BACKEND_URL}/api/admin/login`,
+        formData
+      );
+      const { token } = response.data;
+
+      // Save the token to localStorage
+      localStorage.setItem("token", token);
+
+      // Decode token (use jwt-decode if needed to extract role)
+      const decoded = JSON.parse(atob(token.split(".")[1]));
+
+      // Redirect based on role
+      if (decoded.role === "admin") {
+        navigate("/administrator");
+      } else {
+        setError("You do not have admin privileges.");
+      }
     } catch (err) {
-      alert("Login failed: " + err.response?.data?.error || "Server error");
+      console.error(err);
+      setError("Invalid credentials or server error.");
     }
   };
-  
 
   return (
-    
-    <form onSubmit={handleLogin}>
-                      <HomeNavBar />
-
-      <h2>Admin Login</h2>
+    <form onSubmit={handleSubmit}>
       <input
         type="text"
+        name="username"
         placeholder="Username"
-        value={username}
-        onChange={(e) => setUsername(e.target.value)}
+        value={formData.username}
+        onChange={handleChange}
+        required
       />
       <input
         type="password"
+        name="password"
         placeholder="Password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
+        value={formData.password}
+        onChange={handleChange}
+        required
       />
       <button type="submit">Login</button>
+      {error && <p>{error}</p>}
     </form>
   );
 };
 
-export default AdministratorLogin;
+export default AdminLogin;

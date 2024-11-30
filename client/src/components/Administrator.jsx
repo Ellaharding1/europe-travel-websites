@@ -4,21 +4,23 @@ import { Box, Typography, Card, CardContent, Button, Grid } from "@mui/material"
 
 const Administrator = () => {
   const [users, setUsers] = useState([]); // Store all users
-  const [isAdmin, setIsAdmin] = useState(false); // Track if logged-in user is an admin
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         const token = localStorage.getItem("token");
         const config = { headers: { Authorization: `Bearer ${token}` } };
-  
         const usersResponse = await axios.get(
           `${import.meta.env.VITE_BACKEND_URL}/api/admin/users`,
           config
         );
-        console.log("Fetched Users:", usersResponse.data); // Log fetched users
         setUsers(usersResponse.data);
       } catch (err) {
+        if (err.response?.status === 403) {
+          alert("Access denied. Please ensure you are logged in as an admin.");
+        } else {
+          alert("An unexpected error occurred. Please try again.");
+        }
         console.error("Error fetching users:", err);
       }
     };
@@ -31,17 +33,17 @@ const Administrator = () => {
     try {
       console.log("Updating user status...");
       console.log("User ID:", userId, "Status:", status);
-  
+
       const token = localStorage.getItem("token");
       const config = { headers: { Authorization: `Bearer ${token}` } };
-  
+
       const response = await axios.patch(
         `${import.meta.env.VITE_BACKEND_URL}/api/admin/user`,
         { userId, status },
         config
       );
       console.log("Response:", response.data);
-  
+
       alert(response.data.message);
       setUsers((prevUsers) =>
         prevUsers.map((user) =>
@@ -52,8 +54,52 @@ const Administrator = () => {
       console.error("Error updating user status:", err);
     }
   };
-  
-  
+
+  const grantAdmin = async (email) => {
+    try {
+      const token = localStorage.getItem("token");
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+
+      const response = await axios.patch(
+        `${import.meta.env.VITE_BACKEND_URL}/api/admin/grant`,
+        { email },
+        config
+      );
+      console.log("Grant Admin Response:", response.data);
+
+      alert(`Admin privileges granted to ${email.split("@")[0]}`);
+      setUsers((prevUsers) =>
+        prevUsers.map((user) =>
+          user.email === email ? { ...user, isAdmin: true } : user
+        )
+      );
+    } catch (err) {
+      console.error("Error granting admin privileges:", err);
+    }
+  };
+
+  const revokeAdmin = async (email) => {
+    try {
+      const token = localStorage.getItem("token");
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+
+      const response = await axios.patch(
+        `${import.meta.env.VITE_BACKEND_URL}/api/admin/revoke`,
+        { email },
+        config
+      );
+      console.log("Revoke Admin Response:", response.data);
+
+      alert(`Admin privileges revoked for ${email.split("@")[0]}`);
+      setUsers((prevUsers) =>
+        prevUsers.map((user) =>
+          user.email === email ? { ...user, isAdmin: false } : user
+        )
+      );
+    } catch (err) {
+      console.error("Error revoking admin privileges:", err);
+    }
+  };
 
   return (
     <Box
@@ -109,6 +155,33 @@ const Administrator = () => {
                   <Typography variant="body2" color="textSecondary">
                     Status: {user.status}
                   </Typography>
+                  <Typography variant="body2" color="textSecondary">
+                    Role: {user.isAdmin ? "Administrator" : "User"}
+                  </Typography>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      marginTop: "10px",
+                    }}
+                  >
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      onClick={() => grantAdmin(user.email)}
+                      disabled={user.isAdmin}
+                    >
+                      Grant Admin
+                    </Button>
+                    <Button
+                      variant="contained"
+                      color="secondary"
+                      onClick={() => revokeAdmin(user.email)}
+                      disabled={!user.isAdmin}
+                    >
+                      Revoke Admin
+                    </Button>
+                  </Box>
                   <Box
                     sx={{
                       display: "flex",

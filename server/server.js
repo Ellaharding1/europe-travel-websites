@@ -52,26 +52,31 @@ const client = new MongoClient(DATABASE_URI);
 
 
     // Middleware for authenticating admin
-const authenticateAdmin = async (req, res, next) => {
-  const token = req.headers.authorization?.split(" ")[1];
-  if (!token) {
-    return res.status(401).json({ error: "Unauthorized: No token provided" });
-  }
-
-  try {
-    const decoded = jwt.verify(token, process.env.TOKEN_SECRET); // Use the secret from .env
-    const admin = await db.collection("admins").findOne({ _id: new ObjectId(decoded.id) });
-    if (!admin) {
-      return res.status(403).json({ error: "Forbidden: Admin not found" });
-    }
-
-    req.admin = admin; // Attach admin details to the request
-    next(); // Proceed to the next middleware or route handler
-  } catch (err) {
-    console.error("Error in authenticateAdmin:", err.message);
-    res.status(403).json({ error: "Invalid token" });
-  }
-};
+    const authenticateAdmin = async (req, res, next) => {
+      const token = req.headers.authorization?.split(" ")[1];
+      if (!token) {
+        return res.status(401).json({ error: "Unauthorized: No token provided" });
+      }
+    
+      try {
+        const decoded = jwt.verify(token, process.env.TOKEN_SECRET); // Verify token
+        if (decoded.role !== "admin") {
+          return res.status(403).json({ error: "Forbidden: Admin access required" });
+        }
+    
+        const admin = await db.collection("admins").findOne({ _id: new ObjectId(decoded.id) });
+        if (!admin) {
+          return res.status(403).json({ error: "Forbidden: Admin not found" });
+        }
+    
+        req.admin = admin; // Attach admin details to the request
+        next(); // Proceed to the next middleware or route handler
+      } catch (err) {
+        console.error("Error in authenticateAdmin:", err.message);
+        res.status(403).json({ error: "Invalid token" });
+      }
+    };
+    
 
 
     // Define routes here (example)
@@ -278,35 +283,41 @@ const authenticateAdmin = async (req, res, next) => {
     const { email, password } = req.body;
   
     try {
+      // Find the user by email
       const user = await db.collection("users").findOne({ email });
       if (!user) {
         return res.status(404).json({ error: "User not found." });
       }
   
+      // Compare the password
       const isMatch = await bcrypt.compare(password, user.password);
       if (!isMatch) {
         return res.status(401).json({ error: "Invalid email or password." });
       }
   
+      // Check if the user is verified
       if (!user.isVerified) {
         return res.status(403).json({ error: "Please verify your email before logging in." });
       }
   
+      // Check if the account is disabled
       if (user.isDisabled) {
         return res.status(403).json({ error: "Account is disabled." });
       }
   
-      // Generate a new token using the user's secretKey
-      const token = jwt.sign({ id: user._id, email: user.email }, user.secretKey, {
+      // Generate a token with user information
+      const token = jwt.sign({ id: user._id, email: user.email, status: user.status }, process.env.TOKEN_SECRET, {
         expiresIn: "1h",
       });
   
-      res.status(200).json({ message: "Login successful", token });
+      // Respond with the token and user status
+      res.status(200).json({ message: "Login successful", token, status: user.status });
     } catch (err) {
       console.error("Login error:", err.message);
       res.status(500).json({ error: "Failed to log in." });
     }
   });
+  
   
 
   
@@ -425,7 +436,6 @@ app.post("/api/add-review", authenticateToken, async (req, res) => {
       return res.status(400).json({ error: "Invalid list ID" });
     }
 
-    // Validate rating and comment
     const reviewSchema = Joi.object({
       rating: Joi.number().integer().min(1).max(5).required(),
       comment: Joi.string().optional(),
@@ -436,7 +446,6 @@ app.post("/api/add-review", authenticateToken, async (req, res) => {
       return res.status(400).json({ error: error.details[0].message });
     }
 
-    // Fetch the list
     const list = await db.collection("lists").findOne({
       _id: new ObjectId(listId),
       visibility: "public",
@@ -446,23 +455,20 @@ app.post("/api/add-review", authenticateToken, async (req, res) => {
       return res.status(404).json({ error: "Public list not found" });
     }
 
-    // Fetch the user details for the username
     const user = await db.collection("users").findOne({ _id: new ObjectId(req.user.id) });
     if (!user) {
       return res.status(404).json({ error: "User not found." });
     }
 
-    // Create the review object
     const review = {
       _id: new ObjectId(),
       userId: req.user.id,
-      username: user.nickname, // Add the user's nickname
-      rating: Number(rating), // Ensure rating is stored as a number
+      username: user.nickname,
+      rating: Number(rating),
       comment: comment || "",
-      createdAt: new Date(), // Store the creation date
+      createdAt: new Date(),
     };
 
-    // Add the review to the list
     const result = await db.collection("lists").updateOne(
       { _id: new ObjectId(listId) },
       { $push: { reviews: review } }
@@ -472,22 +478,19 @@ app.post("/api/add-review", authenticateToken, async (req, res) => {
       return res.status(500).json({ error: "Failed to add review." });
     }
 
-    // Fetch the updated list to recalculate the average rating
     const updatedList = await db.collection("lists").findOne({ _id: new ObjectId(listId) });
 
-    // Calculate the average rating
     const reviews = updatedList.reviews || [];
     const totalRatings = reviews.reduce((sum, r) => sum + Number(r.rating || 0), 0);
     const averageRating =
       reviews.length > 0 ? parseFloat((totalRatings / reviews.length).toFixed(2)) : 0;
 
-    // Update the averageRating in the list
     await db.collection("lists").updateOne(
       { _id: new ObjectId(listId) },
       { $set: { averageRating } }
     );
 
-    console.log("Review added successfully:", result);
+    console.log("Review added successfully:", review);
 
     res.status(201).json({ message: "Review added successfully", updatedList });
   } catch (error) {
@@ -495,6 +498,7 @@ app.post("/api/add-review", authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Failed to add review." });
   }
 });
+
 
 
 // Update list selection status
@@ -830,22 +834,63 @@ app.get("/api/test-token", authenticateToken, (req, res) => {
 
 
 // Grant admin privileges
+// Grant Admin Privileges
 app.patch("/api/admin/grant", authenticateAdmin, async (req, res) => {
-  const { username } = req.body;
+  const { email } = req.body;
+  const username = email.split("@")[0];
 
   try {
-    const result = await db.collection("users").updateOne(
-      { username },
+    // Find the user in the users collection
+    const user = await db.collection("users").findOne({ email });
+    if (!user) {
+      return res.status(404).json({ error: "User not found." });
+    }
+
+    // Update the user's isAdmin field in the users collection
+    await db.collection("users").updateOne(
+      { email },
       { $set: { isAdmin: true } }
     );
-    if (!result.modifiedCount) return res.status(404).json({ error: "User not found" });
 
-    res.status(200).json({ message: `${username} is now an admin` });
-  } catch (err) {
-    console.error("Error granting admin privileges:", err.message);
-    res.status(500).json({ error: "Failed to grant admin privileges" });
+    // Add the user to the admins collection
+    await db.collection("admins").insertOne({
+      username,
+      email,
+      password: user.password, // Include hashed password
+      grantedAt: new Date(),
+    });
+
+    res.status(200).json({ message: `${username} is now an admin.` });
+  } catch (error) {
+    console.error("Error granting admin privileges:", error.message);
+    res.status(500).json({ error: "Failed to grant admin privileges." });
   }
 });
+
+
+// Revoke Admin Privileges
+app.patch("/api/admin/revoke", authenticateAdmin, async (req, res) => {
+  const { email } = req.body;
+  const username = email.split("@")[0];
+
+  try {
+    // Update the user's isAdmin field in the users collection
+    await db.collection("users").updateOne(
+      { email },
+      { $set: { isAdmin: false } }
+    );
+
+    // Remove the user from the admins collection
+    await db.collection("admins").deleteOne({ email });
+
+    res.status(200).json({ message: `Admin privileges revoked for ${username}.` });
+  } catch (error) {
+    console.error("Error revoking admin privileges:", error.message);
+    res.status(500).json({ error: "Failed to revoke admin privileges." });
+  }
+});
+
+
 
 
 
@@ -868,6 +913,7 @@ app.patch("/api/admin/review", authenticateAdmin, async (req, res) => {
 });
 
 // Admin login route
+// Admin Login
 app.post("/api/admin/login", async (req, res) => {
   const { username, password } = req.body;
 
@@ -878,13 +924,29 @@ app.post("/api/admin/login", async (req, res) => {
     const isPasswordValid = await bcrypt.compare(password, admin.password);
     if (!isPasswordValid) return res.status(403).json({ error: "Invalid credentials" });
 
-    const token = jwt.sign({ id: admin._id }, process.env.TOKEN_SECRET, { expiresIn: "1h" });
+    const token = jwt.sign(
+      { id: admin._id, role: "admin" }, // Include role
+      process.env.TOKEN_SECRET,
+      { expiresIn: "1h" }
+    );
     res.status(200).json({ message: "Login successful", token });
   } catch (err) {
     console.error("Admin login error:", err.message);
     res.status(500).json({ error: "An error occurred during login" });
   }
 });
+
+// Fetch Users (Admin Protected Route)
+app.get("/api/admin/users", authenticateAdmin, async (req, res) => {
+  try {
+    const users = await db.collection("users").find({}).toArray();
+    res.status(200).json(users);
+  } catch (err) {
+    console.error("Error fetching users:", err.message);
+    res.status(500).json({ error: "Failed to fetch users" });
+  }
+});
+
 
 app.get("/api/admin/users", authenticateAdmin, async (req, res) => {
   try {
@@ -951,11 +1013,8 @@ async function authenticateToken(req, res, next) {
   }
 
   try {
-    // Decode the token without verifying to extract user ID
-    const decoded = jwt.decode(token);
-    if (!decoded?.id) {
-      return res.status(403).json({ error: "Invalid token payload." });
-    }
+    // Verify the token with the provided secret
+    const decoded = jwt.verify(token, process.env.TOKEN_SECRET);
 
     // Fetch the user from the database
     const user = await db.collection("users").findOne({ _id: new ObjectId(decoded.id) });
@@ -963,19 +1022,21 @@ async function authenticateToken(req, res, next) {
       return res.status(404).json({ error: "User not found." });
     }
 
-    // Verify the token using the user's specific secret key
-    jwt.verify(token, user.secretKey, (err, verified) => {
-      if (err) {
-        return res.status(403).json({ error: "Invalid or expired token." });
-      }
-      req.user = verified; // Attach user info to the request
-      next();
-    });
+    // Attach user information to the request
+    req.user = {
+      id: user._id,
+      email: user.email,
+      nickname: user.nickname,
+      isAdmin: user.isAdmin || false,
+    };
+
+    next(); // Proceed to the next middleware or route handler
   } catch (err) {
     console.error("Token verification error:", err.message);
-    res.status(500).json({ error: "Failed to authenticate token." });
+    res.status(403).json({ error: "Invalid or expired token." });
   }
 }
+
 
 
 
