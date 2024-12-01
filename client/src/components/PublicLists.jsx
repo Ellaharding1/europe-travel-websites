@@ -148,7 +148,6 @@ const PublicLists = () => {
       {isLoggedIn ? <LoggedInNavBar isAdmin={isAdmin} /> : <HomeNavBar />}
       <Toolbar /> {/* Add spacing for navbar */}
       <Typography variant="h4">Public Lists</Typography>
-      {/* Add content for public lists */}
     </Box>
 
       <Typography

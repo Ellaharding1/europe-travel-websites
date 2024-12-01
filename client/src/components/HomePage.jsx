@@ -67,14 +67,7 @@ function HomePage() {
             >
               Public Lists
             </Button>
-            <Button
-              variant="contained"
-              color="primary"
-              component={Link}
-              to="/AdministratorLogin"
-            >
-              Admin Login
-            </Button>
+            
           </Box>
         </Box>
       </div>

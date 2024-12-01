@@ -162,10 +162,10 @@ const SearchDestination = ({ selectedList, selectedListId, setSelectedList, user
     fetchSelectedList(); // Initial fetch
   
     const interval = setInterval(() => {
-      fetchSelectedList(); // Poll the selected list periodically
-    }, 5000); // Adjust polling interval as needed (5 seconds here)
+      fetchSelectedList(); 
+    }, 5000);
   
-    return () => clearInterval(interval); // Cleanup the interval on component unmount
+    return () => clearInterval(interval); 
   }, [selectedList]);
   
 
@@ -176,7 +176,7 @@ const SearchDestination = ({ selectedList, selectedListId, setSelectedList, user
   
   const handleDuckDuckGoSearch = (query) => {
     const searchUrl = `https://duckduckgo.com/?q=${encodeURIComponent(query)}`;
-    window.open(searchUrl, "_blank"); // Opens the search in a new tab
+    window.open(searchUrl, "_blank"); 
   };
   
   return (
@@ -188,16 +188,14 @@ const SearchDestination = ({ selectedList, selectedListId, setSelectedList, user
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
-        backgroundAttachment: "fixed", // Ensures the background stays in place
-        minHeight: "100vh", // Ensures the initial viewport height is covered
+        backgroundAttachment: "fixed", 
+        minHeight: "100vh", 
      }}
     >
       <Box>
       {/* Dynamically render the appropriate navbar */}
       {isLoggedIn ? <LoggedInNavBar isAdmin={isAdmin} /> : <HomeNavBar />}
-      <Toolbar /> {/* Add spacing for navbar */}
-      <Typography variant="h4">Public Lists</Typography>
-      {/* Add content for public lists */}
+      <Toolbar /> 
     </Box>
 
         <h1 style={{ textAlign: "center", color: "#fff", marginTop: "70px" }}>
@@ -338,21 +336,21 @@ const SearchDestination = ({ selectedList, selectedListId, setSelectedList, user
 <div key={result.id}>
   {isLoggedIn ? (
     <button
-      onClick={() => handleButtonClick(result.id)} // Use a separate function
+      onClick={() => handleButtonClick(result.id)}
       style={{
         marginTop: "10px",
         padding: "10px 20px",
-        backgroundColor: selectedList ? "blue" : "#ccc", // Use selectedList to manage button state
+        backgroundColor: selectedList ? "blue" : "#ccc", 
         color: "#fff",
         border: "none",
         borderRadius: "4px",
-        cursor: selectedList ? "pointer" : "not-allowed", // Allow clicks only if a list is selected
+        cursor: selectedList ? "pointer" : "not-allowed", 
         transition: "background-color 0.3s ease",
       }}
-      disabled={!selectedList} // Disable button if no list is selected
+      disabled={!selectedList}
     >
       {selectedList
-        ? `Add to ${selectedList}` // Show the selected list name dynamically
+        ? `Add to ${selectedList}` 
         : "Please select a list"}
     </button>
   ) : (

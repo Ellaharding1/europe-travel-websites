@@ -28,7 +28,7 @@ const LoggedIn = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false); // State for toggling the "Your Travel Lists" section
-  const [isPublicListsCollapsed, setIsPublicListsCollapsed] = useState(false); // State for "Public Lists"
+  const [isPublicListsCollapsed, setIsPublicListsCollapsed] = useState(false); 
   const [isTravelListCollapsed, setIsTravelListCollapsed] = useState(false); // State for "Your Travel Lists"
 
 
@@ -246,6 +246,19 @@ const handleDescriptionEdit = async (listId, newDescription) => {
     }
   };
 
+  const handleDeleteListWithConfirmation = (list) => {
+    // Ask the user for confirmation
+    const userConfirmed = window.confirm("Are you sure you want to delete this list?");
+  
+    // If the user confirms, proceed with the deletion
+    if (userConfirmed) {
+      handleDeleteList(list); // Call your existing function to delete the list
+    } else {
+      console.log("List deletion was canceled."); // Optional: Log that the deletion was canceled
+    }
+  };
+  
+
 
   return (
     <div
@@ -264,7 +277,6 @@ const handleDescriptionEdit = async (listId, newDescription) => {
 
 
 
-      {/* Public Lists (Left Section) */}
     <div
       style={{
         width: "75%", // Adjust width as needed
@@ -727,10 +739,11 @@ const handleDescriptionEdit = async (listId, newDescription) => {
                           cursor: "pointer",
                           transition: "background-color 0.3s ease",
                         }}
-                        onClick={() => handleDeleteList(list)}
+                        onClick={() => handleDeleteListWithConfirmation(list)} // Use the new function
                       >
                         Delete List
                       </button>
+
                     </div>
                   </>
             )}

@@ -31,9 +31,7 @@ const HomeNavBar = () => {
           <Button color="inherit" component={Link} to="/public-lists">
             Public Lists
           </Button>
-          <Button color="inherit" component={Link} to="/AdministratorLogin">
-            Admin Login
-          </Button>
+          
         </Toolbar>
       </AppBar>
 
