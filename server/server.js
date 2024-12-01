@@ -226,58 +226,69 @@ const client = new MongoClient(DATABASE_URI);
       res.status(400).json({ error: "Invalid or expired token." });
     }
   });
+
+  const generateVerificationLink = (user) => {
+    // Assuming your frontend is served at this URL
+    const verificationLink = `${process.env.FRONTEND_URL}/verify-email?token=${user.verificationToken}`;
+    return verificationLink;
+  };
   
   
-  app.get("/api/public-lists", async (req, res) => {
+  
+  app.post("/api/login", async (req, res) => {
+    const { usernameOrEmail, password } = req.body;
+  
     try {
-      const limit = parseInt(req.query.limit) || 10;
+      const user = await db.collection("users").findOne({
+        $or: [{ username: usernameOrEmail }, { email: usernameOrEmail }],
+      });
   
-      // Fetch public lists with essential fields
-      const publicLists = await db.collection("lists")
-        .find({ visibility: "public" })
-        .sort({ lastEdited: -1 })
-        .limit(limit)
-        .toArray();
-  
-      if (!publicLists.length) {
-        return res.status(200).json({ lists: [] }); // Gracefully handle no lists
+      if (!user) {
+        return res.status(401).json({ error: "Invalid username/email or password." });
       }
   
-      // Fetch destinations and calculate average rating
-      const listsWithDetails = await Promise.all(
-        publicLists.map(async (list) => {
-          const destinations = await db.collection("destinations")
-            .find({ id: { $in: list.destinationIDs || [] } }) // Ensure destinationIDs is valid
-            .toArray();
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        return res.status(401).json({ error: "Invalid username/email or password." });
+      }
   
-          // Calculate average rating
-          const reviews = list.reviews || [];
-          const averageRating =
-            reviews.length > 0
-              ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
-              : null;
+      if (user.status !== "active") {
+        return res.status(403).json({ error: "Your account is not active or disabled." });
+      }
   
-          return {
-            ...list,
-            destinations,
-            reviews,
-            averageRating, // Include calculated average rating
-          };
-        })
+      if (!user.isVerified) {
+        // Generate a verification link or token
+        const verificationLink = generateVerificationLink(user); // Implement this function
+      
+        return res.status(403).json({
+          error: "Your email is not verified. Please verify your email.",
+          verificationLink: verificationLink,  // Include the verification link
+        });
+      }
+      
+  
+      const token = jwt.sign(
+        { id: user._id, username: user.username, email: user.email, isAdmin: user.isAdmin },
+        process.env.TOKEN_SECRET,
+        { expiresIn: "1h" }
       );
   
-      res.status(200).json({ lists: listsWithDetails });
+      res.status(200).json({
+        message: "Login successful",
+        token,
+        isAdmin: user.isAdmin || false,
+        verified: user.isVerified, // Send the verification status
+      });
     } catch (err) {
-      console.error("Error fetching public lists:", err.message);
-  
-      if (!res.headersSent) {
-        res.status(500).json({ error: "Failed to fetch public lists." });
-      }
+      console.error("Login error:", err.message);
+      res.status(500).json({ error: "Failed to log in. Please try again later." });
     }
   });
+
+
   
   
-  // Login User
+  
   app.post("/api/login", async (req, res) => {
     const { usernameOrEmail, password } = req.body;
   
@@ -299,7 +310,16 @@ const client = new MongoClient(DATABASE_URI);
   
       // Check if account is active
       if (user.status !== "active") {
-        return res.status(403).json({ error: "Your account is not active or disabled. Contact support for help." });
+        return res.status(403).json({
+          error: "Your account is not active or disabled. Contact support for help.",
+        });
+      }
+  
+      // Check if the email is verified
+      if (!user.isVerified) {
+        return res.status(403).json({
+          error: "Your email is not verified. Please check your inbox for the verification email.",
+        });
       }
   
       // Generate token with user details
@@ -319,6 +339,7 @@ const client = new MongoClient(DATABASE_URI);
       res.status(500).json({ error: "Failed to log in. Please try again later." });
     }
   });
+  
   
   app.get("/destinations", async (req, res) => {
     try {
@@ -1124,11 +1145,6 @@ app.patch("/api/admin/reviews/visibility", authenticateToken, async (req, res) =
     res.status(500).json({ error: "Failed to update review visibility." });
   }
 });
-
-
-
-
-
 
 
 
