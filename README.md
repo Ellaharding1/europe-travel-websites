@@ -1,10 +1,63 @@
-# SE 3316 - Lab 3/4
-Please put all front-end files in the folder named `client` and all back-end files in the folder named `server`.
+# Europe Travel Websites
 
-For lab 3, edit `client/index.html` file to add necessary HTML and add links to your CSS files. Add your front-end JavaScript code to `client/lab3.js` Put all your CSS and any other JavaScript files in the `client` folder. Put all your front-end assets in `client/img` folder and back-end assets in `server/data` folder. Git will ignore content in these folders and you must copy them separately to the server when you are deploying.
+## Overview
+This project is a web application designed to manage and explore travel destinations across Europe. It offers features such as authentication, travel destination listings, and user-friendly interaction for creating personalized travel lists. The application is implemented using modern web development techniques.
 
-For lab 4, create front-end framework inside `client` folder.
+## Features
+### 1. Authentication System
+- **Local Authentication**:
+  - Login and registration using email and password.
+  - Proper validation for user credentials.
+- **Secure Authentication**:
+  - Password encryption to ensure data security.
 
-Edit `server/server.js` file to add JavaScript code that implements your REST API.
+### 2. Travel Destination Management
+- Display a list of travel destinations across Europe.
+- Allow users to filter and sort destinations by various criteria (e.g., country, region).
 
-If you use any AI tools, please record the prompts in the file `ai-prompts.txt`. Commit history of this file must match the code changes in your repository.
+### 3. Personal Travel Lists
+- Users can create and manage their own travel lists.
+- Add or remove destinations to/from personalized travel lists.
+
+### 4. User-Friendly Interface
+- Intuitive UI designed for ease of navigation.
+- Clear success messages and error notifications for user actions.
+
+## Technical Stack
+- **Frontend**: HTML, CSS, and JavaScript.
+- **Backend**: Node.js with Express.
+- **Database**: MongoDB for storing user data and destination information.
+
+## How to Run
+### Prerequisites
+1. Node.js and npm installed on your machine.
+2. MongoDB set up locally or using a cloud-based solution.
+
+### Steps
+1. Clone the repository:
+   
+   git clone https://github.com/Ellaharding1/europe-travel-websites.git
+   cd europe-travel-websites
+   
+2. Install dependencies:
+   
+   npm install
+   
+3. Start the application:
+   
+   npm start
+   
+4. Open your browser and navigate to `http://localhost:3000`.
+
+## Testing
+This application has been rigorously tested for functionality. The test report includes:
+- Authentication validations.
+- User interaction with travel lists.
+- UI/UX feedback.
+
+## License
+This project is licensed under the MIT License. See the LICENSE file for details.
+
+## Author
+- **Ella Harding**  
+  GitHub: [Ellaharding1](https://github.com/Ellaharding1)
